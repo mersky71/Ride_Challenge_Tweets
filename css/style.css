@@ -351,10 +351,11 @@ hr.sep{
 /* --- Ride line buttons --- */
 .lineButtons{
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin-top: 6px;
-  justify-content: flex-start; /* left-align */
-  flex-wrap: wrap; /* safe on very small screens */
+  justify-content: flex-start;
+  flex-wrap: nowrap; /* IMPORTANT: keep on one line */
+  overflow-x: auto;  /* safety on very small screens */
 }
 
 .lineButtons.two{
@@ -366,15 +367,17 @@ hr.sep{
 }
 
 .lineBtn{
-  width: 100px;            /* ← key change */
-  padding: 8px 6px;
-  border-radius: 6px
+  width: 92px;              /* fits 3 across on mobile */
+  padding: 7px 6px;
+  border-radius: 8px;
   border: 2px solid var(--park);
   background: #ffffff;
   color: var(--park);
   font-size: 11px;
   font-weight: 600;
   text-align: center;
+  white-space: nowrap;      /* SINGLE LINE TEXT */
+  line-height: 1.1;
   cursor: pointer;
 }
 
@@ -413,6 +416,12 @@ body.inChallenge #appTitle {
   display: none !important; 
 }
 
+
+@media (max-width: 420px){
+  .rideRow{
+    padding: 10px;
+  }
+}
 
 
 
