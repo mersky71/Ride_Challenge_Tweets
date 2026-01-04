@@ -200,6 +200,7 @@ body{
   flex-direction: column;
   gap: 6px;
   padding: 12px;
+  align-items: flex-start;
   border-top: 1px solid #eee;
   background: #ffffff;
 }
@@ -352,7 +353,7 @@ hr.sep{
   display: flex;
   gap: 10px;
   margin-top: 6px;
-  justify-content: center;
+  justify-content: flex-start; /* left-align */
   flex-wrap: wrap; /* safe on very small screens */
 }
 
@@ -397,5 +398,14 @@ hr.sep{
 .startPage,
 .startPage *{
   color: #111;
+}
+
+/* Force Start page text to black */
+.startPage{
+  color: #111;
+}
+
+.startPage *{
+  color: #111 !important;
 }
 
