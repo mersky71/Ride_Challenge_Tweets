@@ -349,9 +349,11 @@ hr.sep{
 
 /* --- Ride line buttons --- */
 .lineButtons{
-  display: grid;
-  gap: 8px;
+  display: flex;
+  gap: 10px;
   margin-top: 6px;
+  justify-content: center;
+  flex-wrap: wrap; /* safe on very small screens */
 }
 
 .lineButtons.two{
@@ -363,15 +365,18 @@ hr.sep{
 }
 
 .lineBtn{
+  width: 140px;            /* ← key change */
   padding: 10px 8px;
-  border-radius: 8px;
+  border-radius: 10px;
   border: 2px solid var(--park);
   background: #ffffff;
   color: var(--park);
   font-size: 14px;
   font-weight: 600;
+  text-align: center;
   cursor: pointer;
 }
+
 
 .lineBtn:hover{
   background: rgba(0,0,0,.04);
@@ -387,3 +392,10 @@ hr.sep{
   opacity: .35;
   cursor: default;
 }
+
+/* Start / landing page text should be dark */
+.startPage,
+.startPage *{
+  color: #111;
+}
+
