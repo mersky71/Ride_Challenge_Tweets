@@ -366,7 +366,7 @@ hr.sep{
 }
 
 .lineBtn{
-  width: 100px;            /* ← key change */
+  width: 80px;            /* ← key change */
   padding: 8px 6px;
   border-radius: 8px;
   border: 2px solid var(--park);
@@ -412,6 +412,7 @@ hr.sep{
 body.inChallenge #appTitle { 
   display: none !important; 
 }
+
 
 
 
