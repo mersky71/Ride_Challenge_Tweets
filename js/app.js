@@ -32,6 +32,8 @@ const moreBtn = document.getElementById("moreBtn");
 const moreMenu = document.getElementById("moreMenu");
 const endToStartBtn = document.getElementById("endToStartBtn");
 
+const appTitle = document.getElementById("appTitle");
+
 let rides = [];
 let active = null;
 let currentPark = "mk";
@@ -117,13 +119,17 @@ function setupMoreMenu() {
   });
 }
 
+
 function setHeaderEnabled(enabled) {
-  // show/hide
+  // Show/hide title
+  appTitle.style.display = enabled ? "none" : "block";
+
+  // Show/hide controls
   parkSelect.style.display = enabled ? "inline-flex" : "none";
   moreBtn.style.display = enabled ? "inline-flex" : "none";
   counterPill.style.display = enabled ? "inline-flex" : "none";
 
-  // enable/disable
+  // Enable/disable controls
   parkSelect.disabled = !enabled;
   moreBtn.disabled = !enabled;
 }
@@ -162,7 +168,7 @@ Help me support @GKTWVillage by donating at the link below</textarea>
         </div>
 
         <div class="formRow">
-          <div class="label">Fundraising link</div>
+          <div class="label">My fundraising link</div>
           <input id="fundLink" class="input" placeholder="https://..." />
         </div>
 
@@ -442,22 +448,17 @@ function buildRideTweet({ rideNumber, rideName, mode, timeLabel }) {
   return `${base}${mid} at ${timeLabel}`;
 }
 
-function openTweetDraft(mainText) {
-  // Pull from active challenge settings (adjusted for common key names)
-  const tagsText =
-    (active?.tagsText ?? active?.settings?.tagsText ?? "").trim();
 
-  const fundraisingLink =
-    (active?.fundraisingLink ?? active?.settings?.fundraisingLink ?? "").trim();
+function openTweetDraft(mainText) {
+  const tags = (active?.tagsText ?? "").trim();
+  const link = (active?.fundraisingLink ?? "").trim();
 
   let fullText = (mainText ?? "").trim();
-
-  if (tagsText) fullText += "\n\n" + tagsText;
-  if (fundraisingLink) fullText += "\n\n" + fundraisingLink;
+  if (tags) fullText += "\n\n" + tags;
+  if (link) fullText += "\n\n" + link;
 
   const url = new URL("https://twitter.com/intent/tweet");
   url.searchParams.set("text", fullText);
-
   window.open(url.toString(), "_blank", "noopener,noreferrer");
 }
 
@@ -595,6 +596,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
