@@ -207,6 +207,12 @@ body{
 
 .rideRow:first-child{ border-top:none; }
 
+/* Completed rides: gray full-width rectangle */
+.rideRow.completed{
+  background: #f3f4f6;           /* light gray fill */
+  border-top: 1px solid #e5e7eb; /* subtle divider */
+}
+
 .rideMain{ flex:1; min-width: 0; }
 .rideName{
   font-size: 16px;
@@ -238,13 +244,17 @@ body{
 }
 .modePill strong{ font-weight: 750; }
 
+
 .rideActions{
   display:flex;
+  width: 100%;
+  justify-content: flex-end;  /* right-align */
   gap: 8px;
   align-items:center;
   flex-shrink: 0;
   padding-top: 2px;
 }
+
 .smallBtn{
   border: 1px solid var(--line);
   background: rgba(11,15,20,.35);
@@ -256,7 +266,13 @@ body{
 }
 
 .completed{
-  opacity: 0.55;
+  opacity: 1; /* keep text readable; gray background does the work */
+}
+
+.completedNote{
+  margin-top: 4px;
+  font-size: 13px;
+  color: #444;
 }
 
 .completed .rideName{ text-decoration: none; }
@@ -422,6 +438,7 @@ body.inChallenge #appTitle {
     padding: 10px;
   }
 }
+
 
 
 
