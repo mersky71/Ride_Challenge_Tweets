@@ -201,6 +201,10 @@ Help me support @GKTWVillage by donating at the link below</textarea>
 
     active = startNewChallenge({ tagsText, fundraisingLink });
 
+    active.tagsText = tagsText;
+    active.fundraisingLink = fundraisingLink;
+    saveActiveChallenge(active);
+
     setHeaderEnabled(true);
     currentPark = "mk";
     parkSelect.value = currentPark;
@@ -586,3 +590,4 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
