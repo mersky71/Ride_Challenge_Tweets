@@ -443,6 +443,43 @@ body.inChallenge #appTitle {
 }
 
 
+/* --- Dialog / popup contrast fixes (mobile friendly) --- */
+.dialogBackdrop{
+  background: rgba(0,0,0,.45);
+}
+
+.dialog{
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 12px 30px rgba(0,0,0,.25);
+}
+
+.dialog h3{
+  color: #111827 !important;
+}
+
+.dialog p{
+  color: #374151 !important;
+}
+
+.dialog .btnRow{
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.dialog .btn{
+  background: #f3f4f6;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+}
+
+.dialog .btn.btnPrimary{
+  background: var(--park);
+  border-color: var(--park);
+  color: #ffffff;
+}
+
 
 
 
