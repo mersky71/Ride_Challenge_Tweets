@@ -118,9 +118,14 @@ function setupMoreMenu() {
 }
 
 function setHeaderEnabled(enabled) {
+  // show/hide
   parkSelect.style.display = enabled ? "inline-flex" : "none";
   moreBtn.style.display = enabled ? "inline-flex" : "none";
   counterPill.style.display = enabled ? "inline-flex" : "none";
+
+  // enable/disable
+  parkSelect.disabled = !enabled;
+  moreBtn.disabled = !enabled;
 }
 
 function applyParkTheme(parkId) {
@@ -577,4 +582,5 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
