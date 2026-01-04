@@ -453,20 +453,22 @@ async function renderUpdateImagePng(ch) {
   const now = new Date();
   const headerText = `${events.length} rides as of ${formatTime12(now)}`;
 
-  const pad = 24;
+  // NARROWER layout (short names)
+  const pad = 22;
   const rowH = 34;
-  const headH = 56;
-  const headerRowH = 44;
+  const headH = 54;
+  const headerRowH = 42;
 
-  const colN = 60;
-  const colTime = 120;
-  const colLine = 80;
+  const colN = 52;
+  const colTime = 110;
+  const colLine = 70;
 
-  const W = 900;
+  // was 900; narrower now
+  const W = 720;
   const tableW = W - pad * 2;
   const colRide = tableW - colN - colTime - colLine;
 
-  const H = pad * 2 + headH + headerRowH + events.length * rowH + 20;
+  const H = pad * 2 + headH + headerRowH + events.length * rowH + 18;
 
   const dpr = Math.max(2, Math.floor(window.devicePixelRatio || 1));
   const canvas = document.createElement("canvas");
@@ -476,13 +478,16 @@ async function renderUpdateImagePng(ch) {
   const ctx = canvas.getContext("2d");
   ctx.scale(dpr, dpr);
 
+  // background
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
 
+  // header
   ctx.fillStyle = "#111827";
-  ctx.font = "700 34px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText(headerText, pad, pad + 38);
+  ctx.font = "700 30px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText(headerText, pad, pad + 36);
 
+  // divider
   let y = pad + headH;
   ctx.strokeStyle = "#111827";
   ctx.lineWidth = 2;
@@ -491,16 +496,18 @@ async function renderUpdateImagePng(ch) {
   ctx.lineTo(W - pad, y);
   ctx.stroke();
 
-  y += 30;
+  // column headers
+  y += 28;
   ctx.fillStyle = "#111827";
-  ctx.font = "700 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.font = "700 18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
   ctx.fillText("#", pad + 8, y);
   ctx.fillText("Time", pad + colN + 8, y);
   ctx.fillText("Ride", pad + colN + colTime + 8, y);
-  ctx.fillText("LL/SR", pad + colN + colTime + colRide + 8, y);
+  ctx.fillText("LL/SR", pad + colN + colTime + colRide + 6, y);
 
+  // rows start
   y += 16;
-  ctx.font = "500 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.font = "500 18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
   ctx.fillStyle = "#111827";
   ctx.strokeStyle = "#e5e7eb";
   ctx.lineWidth = 1;
@@ -508,25 +515,38 @@ async function renderUpdateImagePng(ch) {
   for (let i = 0; i < events.length; i++) {
     const e = events[i];
     const rowTop = y + i * rowH;
-    const ty = rowTop + 24;
 
+    // Park-tinted background (muted)
+    const parkId = e.park || ridesById.get(e.rideId)?.park || "mk";
+    const tint = (PARK_THEME[parkId]?.park2) || "rgba(0,0,0,.04)";
+    ctx.fillStyle = tint;
+    ctx.fillRect(pad, rowTop, tableW, rowH);
+
+    // row divider
+    ctx.strokeStyle = "#e5e7eb";
     ctx.beginPath();
     ctx.moveTo(pad, rowTop);
     ctx.lineTo(W - pad, rowTop);
     ctx.stroke();
 
+    // text
+    ctx.fillStyle = "#111827";
+    const ty = rowTop + 23;
+
     const timeStr = e.timeISO ? formatTime12(new Date(e.timeISO)) : "";
     const rideStr = shortRideNameFor(e.rideId, e.rideName);
-    const rideText = truncateToWidth(ctx, rideStr, colRide - 16);
+    const rideText = truncateToWidth(ctx, rideStr, colRide - 12);
     const lineStr = lineAbbrev(e.mode);
 
     ctx.fillText(String(i + 1), pad + 8, ty);
     ctx.fillText(timeStr, pad + colN + 8, ty);
     ctx.fillText(rideText, pad + colN + colTime + 8, ty);
-    ctx.fillText(lineStr, pad + colN + colTime + colRide + 24, ty);
+    ctx.fillText(lineStr, pad + colN + colTime + colRide + 18, ty);
   }
 
+  // bottom border
   const bottomY = y + events.length * rowH;
+  ctx.strokeStyle = "#e5e7eb";
   ctx.beginPath();
   ctx.moveTo(pad, bottomY);
   ctx.lineTo(W - pad, bottomY);
@@ -566,9 +586,6 @@ function showUpdateImageDialog({ blob, headerText }) {
           <button id="closeUpdateImgBtn" type="button" class="btn">Close</button>
         </div>
 
-        <p style="margin-top:10px;font-size:13px;color:#374151;">
-          Tip: On X, attach the downloaded/shared image, then post.
-        </p>
       </div>
     </div>
   `;
@@ -776,3 +793,4 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
