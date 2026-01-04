@@ -409,3 +409,7 @@ hr.sep{
   color: #111 !important;
 }
 
+body.inChallenge #appTitle { 
+  display: none !important; 
+}
+
