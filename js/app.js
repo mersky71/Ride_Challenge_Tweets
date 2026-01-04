@@ -36,6 +36,7 @@ const endToStartBtn = document.getElementById("endToStartBtn");
 const appTitle = document.getElementById("appTitle");
 
 let rides = [];
+let ridesById = new Map();
 let active = null;
 let currentPark = "mk";
 
@@ -47,6 +48,8 @@ async function init() {
 
   rides = await fetch("./data/rides.json").then(r => r.json());
   rides = rides.filter(r => r.active !== false);
+
+  ridesById = new Map(rides.map(r => [r.id, r]));
 
   active = loadActiveChallenge();
 
@@ -119,9 +122,9 @@ function setupMoreMenu() {
     });
   });
 
-  // NEW: Tweet update moved into More menu (index.html button id="tweetUpdateMenuBtn")
+  // Tweet update (image) in More menu
   const tweetUpdateMenuBtn = document.getElementById("tweetUpdateMenuBtn");
-  tweetUpdateMenuBtn?.addEventListener("click", () => {
+  tweetUpdateMenuBtn?.addEventListener("click", async () => {
     moreBtn.setAttribute("aria-expanded", "false");
     moreMenu.setAttribute("aria-hidden", "true");
 
@@ -130,8 +133,13 @@ function setupMoreMenu() {
       return;
     }
 
-    // We'll wire image generation later (image_export.js)
-    showToast("Update image generation is next (image_export.js).");
+    try {
+      const { blob, headerText } = await renderUpdateImagePng(active);
+      showUpdateImageDialog({ blob, headerText });
+    } catch (e) {
+      console.error(e);
+      showToast("Sorry — could not create the image on this device.");
+    }
   });
 }
 
@@ -201,6 +209,7 @@ Help me support @GKTWVillage by donating at the link below</textarea>
 
     active = startNewChallenge({ tagsText, fundraisingLink });
 
+    // Make sure tweet builder can read these no matter where storage keeps them.
     active.tagsText = tagsText;
     active.fundraisingLink = fundraisingLink;
     saveActiveChallenge(active);
@@ -250,27 +259,15 @@ function renderParkPage({ readOnly = false } = {}) {
   `;
 
   for (const r of parkRides) {
-    const hasLL = !!r.ll;
-    const hasSR = !!r.sr;
-    const hasAnyAlt = hasLL || hasSR;
-
     const info = completedMap.get(r.id);
     const isCompleted = !!info;
 
     if (!readOnly) {
-      if (!hasAnyAlt) {
-        const nameBtn = document.querySelector(`[data-log-name="${r.id}"]`);
-        nameBtn?.addEventListener("click", () => {
-          if (isCompleted) return;
-          logRide(r, "standby");
-        });
-      } else {
-        // Buttons exist only when NOT completed
-        if (!isCompleted) {
-          document.querySelector(`[data-line="${r.id}:standby"]`)?.addEventListener("click", () => logRide(r, "standby"));
-          if (hasLL) document.querySelector(`[data-line="${r.id}:ll"]`)?.addEventListener("click", () => logRide(r, "ll"));
-          if (hasSR) document.querySelector(`[data-line="${r.id}:sr"]`)?.addEventListener("click", () => logRide(r, "sr"));
-        }
+      // Always wire standby; LL/SR only if present. Buttons only exist when NOT completed.
+      if (!isCompleted) {
+        document.querySelector(`[data-line="${r.id}:standby"]`)?.addEventListener("click", () => logRide(r, "standby"));
+        if (r.ll) document.querySelector(`[data-line="${r.id}:ll"]`)?.addEventListener("click", () => logRide(r, "ll"));
+        if (r.sr) document.querySelector(`[data-line="${r.id}:sr"]`)?.addEventListener("click", () => logRide(r, "sr"));
       }
 
       // Undo/Edit button (only exists when completed)
@@ -289,21 +286,18 @@ function renderRideRow(r, completedMap, readOnly) {
 
   const hasLL = !!r.ll;
   const hasSR = !!r.sr;
-  const hasAnyAlt = hasLL || hasSR;
 
-  // Row 1: ride name only
-  const nameIsClickable = !readOnly && !completed && !hasAnyAlt;
-  const nameHtml = nameIsClickable
-    ? `<button type="button" class="rideName" style="all:unset;display:block;cursor:pointer;font-weight:600;font-size:16px;" data-log-name="${r.id}">${escapeHtml(r.name)}</button>`
-    : `<p class="rideName">${escapeHtml(r.name)}</p>`;
+  // Ride name is always just text now (actions happen via buttons)
+  const nameHtml = `<p class="rideName">${escapeHtml(r.name)}</p>`;
 
   // Row 2 for completed rides: "- completed using ..."
   const suffixHtml = completed ? renderCompletedSuffix(info.event.mode) : "";
 
-  // Row 2 for uncompleted rides: line buttons (if applicable)
+  // Row 2 for uncompleted rides: ALWAYS show Standby; add LL/SR if applicable
   let buttonsHtml = "";
-  if (hasAnyAlt && !completed) {
-    const colsClass = hasSR ? "three" : "two";
+  if (!completed) {
+    const colsClass = hasSR ? "three" : (hasLL ? "two" : "one");
+
     const standbyBtn = renderLineButton(r.id, "standby", "Standby Line", false, readOnly);
     const llBtn = hasLL ? renderLineButton(r.id, "ll", "Lightning Lane", false, readOnly) : "";
     const srBtn = hasSR ? renderLineButton(r.id, "sr", "Single Rider", false, readOnly) : "";
@@ -391,13 +385,19 @@ function buildRideTweet({ rideNumber, rideName, mode, timeLabel }) {
   const mid =
     mode === "ll" ? " using Lightning Lane" :
     mode === "sr" ? " using Single Rider" :
-    "";
+    " using Standby Line";
   return `${base}${mid} at ${timeLabel}`;
 }
 
+function getTagsAndLinkFromActive() {
+  // Prefer top-level fields (app.js reads these), but fall back to storage.js settings.
+  const tags = (active?.tagsText ?? active?.settings?.tagsText ?? "").trim();
+  const link = (active?.fundraisingLink ?? active?.settings?.fundraisingLink ?? "").trim();
+  return { tags, link };
+}
+
 function openTweetDraft(mainText) {
-  const tags = (active?.tagsText ?? "").trim();
-  const link = (active?.fundraisingLink ?? "").trim();
+  const { tags, link } = getTagsAndLinkFromActive();
 
   let fullText = (mainText ?? "").trim();
   if (tags) fullText += "\n\n" + tags;
@@ -414,7 +414,203 @@ function buildCompletedMap(events) {
   return m;
 }
 
-// Line-type editor used by Undo/Edit
+/* ==========================
+   Tweet update (image) logic
+   ========================== */
+
+function shortRideNameFor(rideId, fallbackName) {
+  const r = ridesById.get(rideId);
+  if (!r) return fallbackName || "Ride";
+  return r.shortName || r.short || r.nickname || r.name || fallbackName || "Ride";
+}
+
+function lineAbbrev(mode) {
+  if (mode === "ll") return "LL";
+  if (mode === "sr") return "SR";
+  return "";
+}
+
+function formatTime12(d) {
+  let h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2, "0");
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12;
+  if (h === 0) h = 12;
+  return `${h}:${m} ${ampm}`;
+}
+
+function truncateToWidth(ctx, text, maxWidth) {
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  let t = text;
+  while (t.length > 0 && ctx.measureText(t + "…").width > maxWidth) {
+    t = t.slice(0, -1);
+  }
+  return t.length ? t + "…" : "";
+}
+
+async function renderUpdateImagePng(ch) {
+  const events = ch?.events || [];
+  const now = new Date();
+  const headerText = `${events.length} rides as of ${formatTime12(now)}`;
+
+  const pad = 24;
+  const rowH = 34;
+  const headH = 56;
+  const headerRowH = 44;
+
+  const colN = 60;
+  const colTime = 120;
+  const colLine = 80;
+
+  const W = 900;
+  const tableW = W - pad * 2;
+  const colRide = tableW - colN - colTime - colLine;
+
+  const H = pad * 2 + headH + headerRowH + events.length * rowH + 20;
+
+  const dpr = Math.max(2, Math.floor(window.devicePixelRatio || 1));
+  const canvas = document.createElement("canvas");
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.fillStyle = "#111827";
+  ctx.font = "700 34px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText(headerText, pad, pad + 38);
+
+  let y = pad + headH;
+  ctx.strokeStyle = "#111827";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(pad, y);
+  ctx.lineTo(W - pad, y);
+  ctx.stroke();
+
+  y += 30;
+  ctx.fillStyle = "#111827";
+  ctx.font = "700 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText("#", pad + 8, y);
+  ctx.fillText("Time", pad + colN + 8, y);
+  ctx.fillText("Ride", pad + colN + colTime + 8, y);
+  ctx.fillText("LL/SR", pad + colN + colTime + colRide + 8, y);
+
+  y += 16;
+  ctx.font = "500 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillStyle = "#111827";
+  ctx.strokeStyle = "#e5e7eb";
+  ctx.lineWidth = 1;
+
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    const rowTop = y + i * rowH;
+    const ty = rowTop + 24;
+
+    ctx.beginPath();
+    ctx.moveTo(pad, rowTop);
+    ctx.lineTo(W - pad, rowTop);
+    ctx.stroke();
+
+    const timeStr = e.timeISO ? formatTime12(new Date(e.timeISO)) : "";
+    const rideStr = shortRideNameFor(e.rideId, e.rideName);
+    const rideText = truncateToWidth(ctx, rideStr, colRide - 16);
+    const lineStr = lineAbbrev(e.mode);
+
+    ctx.fillText(String(i + 1), pad + 8, ty);
+    ctx.fillText(timeStr, pad + colN + 8, ty);
+    ctx.fillText(rideText, pad + colN + colTime + 8, ty);
+    ctx.fillText(lineStr, pad + colN + colTime + colRide + 24, ty);
+  }
+
+  const bottomY = y + events.length * rowH;
+  ctx.beginPath();
+  ctx.moveTo(pad, bottomY);
+  ctx.lineTo(W - pad, bottomY);
+  ctx.stroke();
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1.0));
+  if (!blob) throw new Error("toBlob failed");
+  return { blob, headerText };
+}
+
+function showUpdateImageDialog({ blob, headerText }) {
+  const url = URL.createObjectURL(blob);
+
+  const canShareFile = (() => {
+    try {
+      const f = new File([blob], "ride-update.png", { type: "image/png" });
+      return !!(navigator.canShare && navigator.share && navigator.canShare({ files: [f] }));
+    } catch {
+      return false;
+    }
+  })();
+
+  dialogHost.innerHTML = `
+    <div class="dialogBackdrop" role="presentation">
+      <div class="dialog" role="dialog" aria-modal="true" style="max-width:520px;">
+        <h3>${escapeHtml("Tweet an update (image)")}</h3>
+        <p>${escapeHtml(headerText)}</p>
+
+        <div style="margin:12px 0;">
+          <img src="${url}" alt="Update image preview"
+               style="width:100%;border:1px solid #e5e7eb;border-radius:12px;" />
+        </div>
+
+        <div class="btnRow" style="margin-top:10px;">
+          ${canShareFile ? `<button id="shareUpdateImgBtn" type="button" class="btn btnPrimary">Share image</button>` : ""}
+          <button id="downloadUpdateImgBtn" type="button" class="btn ${canShareFile ? "" : "btnPrimary"}">Download image</button>
+          <button id="closeUpdateImgBtn" type="button" class="btn">Close</button>
+        </div>
+
+        <p style="margin-top:10px;font-size:13px;color:#374151;">
+          Tip: On X, attach the downloaded/shared image, then post.
+        </p>
+      </div>
+    </div>
+  `;
+
+  const close = () => {
+    try { URL.revokeObjectURL(url); } catch {}
+    closeDialog();
+  };
+
+  dialogHost.querySelector(".dialogBackdrop")?.addEventListener("click", (e) => {
+    if (e.target.classList.contains("dialogBackdrop")) close();
+  });
+
+  dialogHost.querySelector("#closeUpdateImgBtn")?.addEventListener("click", close);
+
+  dialogHost.querySelector("#downloadUpdateImgBtn")?.addEventListener("click", () => {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ride-update.png";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  });
+
+  const shareBtn = dialogHost.querySelector("#shareUpdateImgBtn");
+  shareBtn?.addEventListener("click", async () => {
+    try {
+      const file = new File([blob], "ride-update.png", { type: "image/png" });
+      await navigator.share({
+        files: [file],
+        text: headerText
+      });
+    } catch {
+      // user cancelled or share failed
+    }
+  });
+}
+
+/* ==========================
+   Undo/Edit logic
+   ========================== */
+
 function openLineEditDialog(ride, info) {
   if (!active || !info) return;
 
@@ -470,15 +666,6 @@ function openLineEditDialog(ride, info) {
   }
 }
 
-// Legacy entry point (kept so older code paths won't break if reintroduced)
-function openEditDialog(ride, info, tappedMode) {
-  if (!info) return;
-  const currentMode = info.event.mode;
-  if (tappedMode && tappedMode === currentMode) return;
-  openLineEditDialog(ride, info);
-}
-
-// Undo/Edit dialog for completed rides
 function openUndoEditDialog(ride, eventInfo) {
   const hasAlt = !!ride.ll || !!ride.sr;
 
@@ -551,7 +738,6 @@ function openDialog({ title, body, content, buttons }) {
     </div>
   `;
 
-  // click outside closes
   dialogHost.querySelector(".dialogBackdrop")?.addEventListener("click", (e) => {
     if (e.target.classList.contains("dialogBackdrop")) closeDialog();
   });
@@ -590,4 +776,3 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
