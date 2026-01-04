@@ -121,15 +121,21 @@ function setupMoreMenu() {
 
 
 function setHeaderEnabled(enabled) {
-  // Show/hide title
-  appTitle.style.display = enabled ? "none" : "block";
+  // Add a mode flag to the page for CSS
+  document.body.classList.toggle("inChallenge", enabled);
 
-  // Show/hide controls
+  // Hide/show title (use both hidden + display for robustness)
+  if (appTitle) {
+    appTitle.hidden = enabled;
+    appTitle.setAttribute("aria-hidden", enabled ? "true" : "false");
+    appTitle.style.display = enabled ? "none" : "";
+  }
+
+  // Controls
   parkSelect.style.display = enabled ? "inline-flex" : "none";
   moreBtn.style.display = enabled ? "inline-flex" : "none";
   counterPill.style.display = enabled ? "inline-flex" : "none";
 
-  // Enable/disable controls
   parkSelect.disabled = !enabled;
   moreBtn.disabled = !enabled;
 }
@@ -225,7 +231,7 @@ function renderParkPage({ readOnly = false } = {}) {
   counterPill.textContent = `${active.events.length} rides today`;
 
   appEl.innerHTML = `
-    <div class="stack startPage">
+    <div class="stack">
       <div class="card">
         <div class="sectionTitle">
           <h2>${escapeHtml(parkName)}</h2>
@@ -596,6 +602,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
