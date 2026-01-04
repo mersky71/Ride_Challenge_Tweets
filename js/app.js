@@ -15,7 +15,7 @@ const PARKS = [
   { id: "ak", name: "Animal Kingdom" }
 ];
 
-// Easy-to-swap park colors (change here later)
+// Park colors (CSS uses --park)
 const PARK_THEME = {
   mk: { park: "#ff5aa5", park2: "rgba(255,90,165,.18)", parkText: "#0b0f14" },
   ep: { park: "#7c5cff", park2: "rgba(124,92,255,.18)", parkText: "#0b0f14" },
@@ -32,8 +32,8 @@ const moreBtn = document.getElementById("moreBtn");
 const moreMenu = document.getElementById("moreMenu");
 const endToStartBtn = document.getElementById("endToStartBtn");
 
-let rides = []; // loaded from data/rides.json
-let active = null; // active challenge object
+let rides = [];
+let active = null;
 let currentPark = "mk";
 
 init();
@@ -43,12 +43,13 @@ async function init() {
   setupMoreMenu();
 
   rides = await fetch("./data/rides.json").then(r => r.json());
-  // Filter active rides only (future-proof)
   rides = rides.filter(r => r.active !== false);
 
   active = loadActiveChallenge();
+
+  // If there's an active challenge but it's not "today" (with cutoff logic handled in storage.js),
+  // show Start page.
   if (active && !isActiveChallengeForNow(active)) {
-    // Not active for current challenge-day -> show Start page
     renderStartPage({ canAccessLast: !!loadLastChallenge() });
     setHeaderEnabled(false);
     applyParkTheme("mk");
@@ -56,12 +57,11 @@ async function init() {
   }
 
   if (active) {
-    // Resume today
     setHeaderEnabled(true);
     currentPark = "mk";
     parkSelect.value = currentPark;
     applyParkTheme(currentPark);
-    renderParkPage();
+    renderParkPage({ readOnly: false });
   } else {
     renderStartPage({ canAccessLast: !!loadLastChallenge() });
     setHeaderEnabled(false);
@@ -80,7 +80,7 @@ function setupParksDropdown() {
   parkSelect.addEventListener("change", () => {
     currentPark = parkSelect.value;
     applyParkTheme(currentPark);
-    if (active) renderParkPage();
+    if (active) renderParkPage({ readOnly: false });
   });
 }
 
@@ -91,6 +91,7 @@ function setupMoreMenu() {
     moreBtn.setAttribute("aria-expanded", String(!expanded));
     moreMenu.setAttribute("aria-hidden", String(expanded));
   });
+
   document.addEventListener("click", () => {
     moreBtn.setAttribute("aria-expanded", "false");
     moreMenu.setAttribute("aria-hidden", "true");
@@ -101,7 +102,7 @@ function setupMoreMenu() {
     moreMenu.setAttribute("aria-hidden", "true");
 
     openConfirmDialog({
-      title: "End today’s challenge?",
+      title: "End todayâ€™s challenge?",
       body: "This will clear all rides logged today and return you to the Start page. You can begin a new challenge immediately.",
       confirmText: "End challenge and return to Start",
       confirmClass: "btnDanger",
@@ -119,7 +120,7 @@ function setupMoreMenu() {
 function setHeaderEnabled(enabled) {
   parkSelect.disabled = !enabled;
   moreBtn.disabled = !enabled;
-  counterPill.textContent = enabled ? "" : "—";
+  counterPill.textContent = enabled ? "" : "â€”";
 }
 
 function applyParkTheme(parkId) {
@@ -139,10 +140,10 @@ function renderStartPage({ canAccessLast }) {
         </p>
         <p class="p" style="margin-top:10px;">
           It was created by an ordinary person (not a professional software engineer!) with the help of ChatGPT.
-          Please manage expectations accordingly ??
+          Please manage expectations accordingly ðŸ™‚
         </p>
         <p class="p" style="margin-top:10px;">
-          If something doesn’t work for you, feel free to compose your ride tweets manually.
+          If something doesnâ€™t work for you, feel free to compose your ride tweets manually.
         </p>
       </div>
 
@@ -168,17 +169,17 @@ Help me support @GKTWVillage by donating at the link below</textarea>
     </div>
   `;
 
-  const startBtn = document.getElementById("startBtn");
-  startBtn.addEventListener("click", () => {
+  document.getElementById("startBtn")?.addEventListener("click", () => {
     const tagsText = document.getElementById("tagsText").value ?? "";
     const fundraisingLink = document.getElementById("fundLink").value ?? "";
 
     active = startNewChallenge({ tagsText, fundraisingLink });
+
     setHeaderEnabled(true);
     currentPark = "mk";
     parkSelect.value = currentPark;
     applyParkTheme(currentPark);
-    renderParkPage();
+    renderParkPage({ readOnly: false });
   });
 
   const accessLastBtn = document.getElementById("accessLastBtn");
@@ -186,8 +187,6 @@ Help me support @GKTWVillage by donating at the link below</textarea>
     accessLastBtn.addEventListener("click", () => {
       const last = loadLastChallenge();
       if (!last) return;
-      // Open read-only view: for v1, we’ll just load it into active *without allowing logging*.
-      // To keep it simple right now, we’ll render a park page with logging disabled and only allow update-image later.
       active = last;
       setHeaderEnabled(true);
       currentPark = "mk";
@@ -207,7 +206,7 @@ function renderParkPage({ readOnly = false } = {}) {
     .filter(r => r.park === currentPark)
     .sort((a, b) => (a.sortKey || "").localeCompare(b.sortKey || "", "en", { sensitivity: "base" }));
 
-  const completedMap = buildCompletedMap(active.events); // rideId -> { index, event }
+  const completedMap = buildCompletedMap(active.events);
   const parkEventIndexes = active.events
     .map((e, idx) => ({ e, idx }))
     .filter(x => x.e.park === currentPark);
@@ -243,7 +242,7 @@ function renderParkPage({ readOnly = false } = {}) {
     if (!lastParkEvent) return;
 
     openConfirmDialog({
-      title: `Undo today’s completion for ${lastParkEvent.rideShort}?`,
+      title: `Undo todayâ€™s completion for ${lastParkEvent.rideName}?`,
       body: "",
       confirmText: "Undo completion",
       onConfirm: () => {
@@ -255,65 +254,71 @@ function renderParkPage({ readOnly = false } = {}) {
   });
 
   document.getElementById("tweetUpdateBtn")?.addEventListener("click", () => {
-    // Placeholder for v1 scaffold: we’ll wire image generation next.
-    showToast("Update image generation will be the next file we add (image_export.js).");
+    // We'll wire image generation next (image_export.js)
+    showToast("Update image generation is next (image_export.js).");
   });
 
-  // Wire ride actions
+  // Wire clicks:
+  // - For rides WITHOUT LL/SR: tap ride name logs standby
+  // - For rides WITH LL/SR: buttons log; completed buttons open edit dialog
   for (const r of parkRides) {
-    // Log actions (only if not read-only)
+    const hasLL = !!r.ll;
+    const hasSR = !!r.sr;
+    const hasAnyAlt = hasLL || hasSR;
+
+    const info = completedMap.get(r.id);
+    const isCompleted = !!info;
+
     if (!readOnly) {
-      const standbyBtn = document.querySelector(`[data-standby="${r.id}"]`);
-      standbyBtn?.addEventListener("click", () => logRide(r, "standby"));
+      if (!hasAnyAlt) {
+        const nameBtn = document.querySelector(`[data-log-name="${r.id}"]`);
+        nameBtn?.addEventListener("click", () => {
+          if (isCompleted) return;
+          logRide(r, "standby");
+        });
+      } else {
+        // Standby button always present in rows with LL/SR
+        document.querySelector(`[data-line="${r.id}:standby"]`)?.addEventListener("click", () => {
+          if (!isCompleted) return logRide(r, "standby");
+          openEditDialog(r, info, "standby");
+        });
 
-      const llBtn = document.querySelector(`[data-ll="${r.id}"]`);
-      llBtn?.addEventListener("click", () => {
-        if (isRideCompleted(r.id)) {
-          openEditDialog(r);
-        } else {
-          logRide(r, "ll");
+        if (hasLL) {
+          document.querySelector(`[data-line="${r.id}:ll"]`)?.addEventListener("click", () => {
+            if (!isCompleted) return logRide(r, "ll");
+            openEditDialog(r, info, "ll");
+          });
         }
-      });
+        if (hasSR) {
+          document.querySelector(`[data-line="${r.id}:sr"]`)?.addEventListener("click", () => {
+            if (!isCompleted) return logRide(r, "sr");
+            openEditDialog(r, info, "sr");
+          });
+        }
+      }
 
-      const srBtn = document.querySelector(`[data-sr="${r.id}"]`);
-      srBtn?.addEventListener("click", () => {
-        if (isRideCompleted(r.id)) {
-          openEditDialog(r);
-        } else {
-          logRide(r, "sr");
-        }
+      // Undo completion per ride
+      document.querySelector(`[data-undo="${r.id}"]`)?.addEventListener("click", () => {
+        const eventInfo = completedMap.get(r.id);
+        if (!eventInfo) return;
+
+        const isMostRecent = eventInfo.index === active.events.length - 1;
+        const warn = !isMostRecent
+          ? "This will renumber later rides today. Previously sent tweets wonâ€™t be changed."
+          : "";
+
+        openConfirmDialog({
+          title: `Undo todayâ€™s completion for ${r.name}?`,
+          body: warn,
+          confirmText: "Undo completion",
+          onConfirm: () => {
+            active.events = active.events.filter(e => e.id !== eventInfo.event.id);
+            saveActiveChallenge(active);
+            renderParkPage({ readOnly });
+          }
+        });
       });
-    } else {
-      // Read-only: allow edit? no. (v1)
-      // no listeners
     }
-
-    // Undo completion (per ride)
-    const undoBtn = document.querySelector(`[data-undo="${r.id}"]`);
-    undoBtn?.addEventListener("click", () => {
-      const eventInfo = completedMap.get(r.id);
-      if (!eventInfo) return;
-
-      const isMostRecent = eventInfo.index === active.events.length - 1;
-      const warn = !isMostRecent
-        ? "This will renumber later rides today. Previously sent tweets won’t be changed."
-        : "";
-
-      openConfirmDialog({
-        title: `Undo today’s completion for ${r.name}?`,
-        body: warn,
-        confirmText: "Undo completion",
-        onConfirm: () => {
-          active.events = active.events.filter(e => e.id !== eventInfo.event.id);
-          saveActiveChallenge(active);
-          renderParkPage({ readOnly });
-        }
-      });
-    });
-  }
-
-  function isRideCompleted(rideId) {
-    return completedMap.has(rideId);
   }
 }
 
@@ -321,69 +326,76 @@ function renderRideRow(r, completedMap, readOnly) {
   const info = completedMap.get(r.id);
   const completed = !!info;
 
-  const hasAnyAltLine = !!(r.ll || r.sr);
+  const hasLL = !!r.ll;
+  const hasSR = !!r.sr;
+  const hasAnyAlt = hasLL || hasSR;
 
-  // Active state UI:
-  // - For rides with LL/SR: show "(standby)" and explicit LL/SR pills
-  // - For rides without LL/SR: only ride name (tap logs standby)
-  //
-  // Completed state UI:
-  // - Greyed out
-  // - If ride had LL/SR capability: show "— using X"
-  // - If no LL/SR capability: no "using standby" text
+  // Row 1: ride name only
+  // For rides with no LL/SR, the ride name is clickable to log standby (only if not completed & not readOnly).
+  const nameIsClickable = !readOnly && !completed && !hasAnyAlt;
+  const nameHtml = nameIsClickable
+    ? `<button type="button" class="rideName" style="all:unset;display:block;cursor:pointer;font-weight:600;font-size:16px;" data-log-name="${r.id}">${escapeHtml(r.name)}</button>`
+    : `<p class="rideName">${escapeHtml(r.name)}</p>`;
 
-  const completedSuffix = completed
-    ? renderCompletedSuffix(info.event.mode, hasAnyAltLine)
-    : "";
+  const suffixHtml = completed ? renderCompletedSuffix(info.event.mode, hasAnyAlt) : "";
 
-  const standbyLabel = hasAnyAltLine ? `<span class="modeHint">(standby)</span>` : "";
+  // Row 2: buttons only if applicable
+  let buttonsHtml = "";
+  if (hasAnyAlt) {
+    const colsClass = hasSR ? "three" : "two";
 
-  const standbyBtn = hasAnyAltLine
-    ? `<button class="modePill" type="button" data-standby="${r.id}" ${completed || readOnly ? "disabled" : ""}>
-         <strong>${escapeHtml(r.shortName)}</strong> ${standbyLabel}
-       </button>`
-    : `<button class="modePill" type="button" data-standby="${r.id}" ${completed || readOnly ? "disabled" : ""}>
-         <strong>${escapeHtml(r.shortName)}</strong>
-       </button>`;
+    const standbySelected = completed && info.event.mode === "standby";
+    const llSelected = completed && info.event.mode === "ll";
+    const srSelected = completed && info.event.mode === "sr";
 
-  const llPill = r.ll
-    ? `<button class="modePill" type="button" data-ll="${r.id}" ${readOnly ? "disabled" : ""}>
-         ? <span>using Lightning Lane</span>
-       </button>`
-    : "";
+    const standbyBtn = renderLineButton(r.id, "standby", "Standby Line", standbySelected, readOnly);
+    const llBtn = hasLL ? renderLineButton(r.id, "ll", "Lightning Lane", llSelected, readOnly) : "";
+    const srBtn = hasSR ? renderLineButton(r.id, "sr", "Single Rider", srSelected, readOnly) : "";
 
-  const srPill = r.sr
-    ? `<button class="modePill" type="button" data-sr="${r.id}" ${readOnly ? "disabled" : ""}>
-         ?? <span>using Single Rider</span>
-       </button>`
-    : "";
+    buttonsHtml = `
+      <div class="lineButtons ${colsClass}">
+        ${standbyBtn}
+        ${llBtn}
+        ${srBtn}
+      </div>
+    `;
+  }
 
-  const rightUndo = completed
+  const undoHtml = completed && !readOnly
     ? `<button class="smallBtn" type="button" data-undo="${r.id}">Undo completion</button>`
     : "";
 
   return `
     <div class="rideRow ${completed ? "completed" : ""}" role="listitem">
       <div class="rideMain">
-        <p class="rideName">${escapeHtml(r.name)}${completedSuffix}</p>
-        <div class="rideMeta">
-          ${standbyBtn}
-          ${llPill}
-          ${srPill}
-        </div>
+        ${nameHtml}${suffixHtml}
+        ${buttonsHtml}
       </div>
-      <div class="rideActions">
-        ${rightUndo}
-      </div>
+      <div class="rideActions">${undoHtml}</div>
     </div>
   `;
 }
 
+function renderLineButton(rideId, mode, label, selected, readOnly) {
+  const cls = ["lineBtn"];
+  if (selected) cls.push("selected");
+  if (readOnly) cls.push("disabled");
+  return `
+    <button
+      type="button"
+      class="${cls.join(" ")}"
+      ${readOnly ? "disabled" : ""}
+      data-line="${rideId}:${mode}">
+      ${escapeHtml(label)}
+    </button>
+  `;
+}
+
 function renderCompletedSuffix(mode, hadAltLines) {
-  if (!hadAltLines) return ""; // don’t say "using standby" for rides with no LL/SR
-  if (mode === "ll") return ` <span class="subtle">— using Lightning Lane</span>`;
-  if (mode === "sr") return ` <span class="subtle">— using Single Rider</span>`;
-  return ` <span class="subtle">— using standby</span>`;
+  if (!hadAltLines) return "";
+  if (mode === "ll") return ` <span class="subtle">â€” using Lightning Lane</span>`;
+  if (mode === "sr") return ` <span class="subtle">â€” using Single Rider</span>`;
+  return ` <span class="subtle">â€” using standby</span>`;
 }
 
 function logRide(ride, mode) {
@@ -399,7 +411,7 @@ function logRide(ride, mode) {
     park: ride.park,
     mode, // standby | ll | sr
     timeISO: now.toISOString(),
-    rideShort: ride.shortName
+    rideName: ride.name
   };
 
   active.events.push(event);
@@ -413,51 +425,48 @@ function logRide(ride, mode) {
   });
 
   openTweetDraft(tweetText);
-  renderParkPage();
+  renderParkPage({ readOnly: false });
 }
 
 function buildRideTweet({ rideNumber, rideName, mode, timeLabel }) {
   const base = `Ride ${rideNumber}. ${rideName}`;
-  const mid = mode === "ll"
-    ? " using Lightning Lane"
-    : mode === "sr"
-      ? " using Single Rider"
-      : "";
+  const mid =
+    mode === "ll" ? " using Lightning Lane" :
+    mode === "sr" ? " using Single Rider" :
+    "";
   return `${base}${mid} at ${timeLabel}`;
 }
 
 function openTweetDraft(text) {
   const url = new URL("https://twitter.com/intent/tweet");
   url.searchParams.set("text", text);
-
-  // Optional: include tags/hashtags and fundraising link in the draft (your spec currently focuses on ride text,
-  // but we are storing these for later. We'll keep them out of the ride tweet for now.)
   window.open(url.toString(), "_blank", "noopener,noreferrer");
 }
 
 function buildCompletedMap(events) {
   const m = new Map();
-  events.forEach((e, idx) => {
-    m.set(e.rideId, { index: idx, event: e });
-  });
+  events.forEach((e, idx) => m.set(e.rideId, { index: idx, event: e }));
   return m;
 }
 
-function openEditDialog(ride) {
-  const info = buildCompletedMap(active.events).get(ride.id);
-  if (!info) return;
+// Opens edit dialog when a completed ride's line button is tapped
+function openEditDialog(ride, info, tappedMode) {
+  if (!active || !info) return;
 
+  const idx = info.index;
   const currentMode = info.event.mode;
-  const title = `Edit LL/SR use for ${ride.name}?`;
+
+  // If they tapped the already-selected mode, do nothing (reduces accidental edits)
+  if (tappedMode === currentMode) return;
 
   openDialog({
-    title,
-    body: `Update how you rode this attraction today.\nThis will affect future updates only.`,
+    title: `Edit line used for ${ride.name}?`,
+    body: `This will affect future updates only.\nPreviously sent tweets wonâ€™t be changed.`,
     content: `
       <div class="radioList">
-        ${radioItem("standby", "Standby", currentMode)}
-        ${radioItem("ll", "Lightning Lane", currentMode)}
-        ${radioItem("sr", "Single Rider", currentMode)}
+        ${radioItem("standby", "Standby Line", currentMode)}
+        ${radioItem("ll", "Lightning Lane", currentMode, !!ride.ll)}
+        ${radioItem("sr", "Single Rider", currentMode, !!ride.sr)}
       </div>
     `,
     buttons: [
@@ -467,10 +476,10 @@ function openEditDialog(ride) {
     ]
   });
 
-  function radioItem(value, label, selected) {
+  function radioItem(value, label, selected, enabled = true) {
     return `
-      <label class="radioItem">
-        <input type="radio" name="mode" value="${value}" ${selected === value ? "checked" : ""} />
+      <label class="radioItem" style="${enabled ? "" : "opacity:.45"}">
+        <input type="radio" name="mode" value="${value}" ${selected === value ? "checked" : ""} ${enabled ? "" : "disabled"} />
         <span>${escapeHtml(label)}</span>
       </label>
     `;
@@ -479,23 +488,20 @@ function openEditDialog(ride) {
   function saveEdit(withCorrectionTweet) {
     const picked = document.querySelector('input[name="mode"]:checked')?.value ?? currentMode;
 
-    // Update the existing event in-place
-    const idx = info.index;
     active.events[idx] = { ...active.events[idx], mode: picked };
     saveActiveChallenge(active);
 
     closeDialog();
-    renderParkPage();
+    renderParkPage({ readOnly: false });
 
-    showToast("Changes apply to future updates. Previously sent tweets won’t be changed.");
+    showToast("Changes saved for future updates.");
 
     if (withCorrectionTweet) {
-      const rideNumber = idx + 1; // numbering derived from position
-      const line = picked === "ll"
-        ? "Lightning Lane"
-        : picked === "sr"
-          ? "Single Rider"
-          : "standby";
+      const rideNumber = idx + 1;
+      const line =
+        picked === "ll" ? "Lightning Lane" :
+        picked === "sr" ? "Single Rider" :
+        "standby";
       const txt = `Correction: Ride ${rideNumber}. ${ride.name} was via ${line}.`;
       openTweetDraft(txt);
     }
@@ -508,7 +514,11 @@ function openConfirmDialog({ title, body, confirmText, confirmClass, onConfirm }
     body: body || "",
     content: "",
     buttons: [
-      { text: confirmText || "Confirm", className: `btn btnPrimary ${confirmClass || ""}`.trim(), action: () => { closeDialog(); onConfirm(); } },
+      {
+        text: confirmText || "Confirm",
+        className: `btn btnPrimary ${confirmClass || ""}`.trim(),
+        action: () => { closeDialog(); onConfirm(); }
+      },
       { text: "Cancel", className: "btn", action: () => closeDialog() }
     ]
   });
@@ -528,7 +538,7 @@ function openDialog({ title, body, content, buttons }) {
     </div>
   `;
 
-  // Close on backdrop click
+  // click outside closes
   dialogHost.querySelector(".dialogBackdrop")?.addEventListener("click", (e) => {
     if (e.target.classList.contains("dialogBackdrop")) closeDialog();
   });
@@ -547,7 +557,7 @@ function showToast(msg) {
   el.className = "toast";
   el.textContent = msg;
   document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2600);
+  setTimeout(() => el.remove(), 2200);
 }
 
 function formatTime(d) {
