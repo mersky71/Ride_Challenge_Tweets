@@ -442,9 +442,22 @@ function buildRideTweet({ rideNumber, rideName, mode, timeLabel }) {
   return `${base}${mid} at ${timeLabel}`;
 }
 
-function openTweetDraft(text) {
+function openTweetDraft(mainText) {
+  // Pull from active challenge settings (adjusted for common key names)
+  const tagsText =
+    (active?.tagsText ?? active?.settings?.tagsText ?? "").trim();
+
+  const fundraisingLink =
+    (active?.fundraisingLink ?? active?.settings?.fundraisingLink ?? "").trim();
+
+  let fullText = (mainText ?? "").trim();
+
+  if (tagsText) fullText += "\n\n" + tagsText;
+  if (fundraisingLink) fullText += "\n\n" + fundraisingLink;
+
   const url = new URL("https://twitter.com/intent/tweet");
-  url.searchParams.set("text", text);
+  url.searchParams.set("text", fullText);
+
   window.open(url.toString(), "_blank", "noopener,noreferrer");
 }
 
@@ -582,6 +595,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
