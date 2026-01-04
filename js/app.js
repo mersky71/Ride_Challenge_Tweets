@@ -187,17 +187,23 @@ Help me support @GKTWVillage by donating at the link below</textarea>
   `;
 
   document.getElementById("startBtn")?.addEventListener("click", () => {
-    const tagsText = document.getElementById("tagsText").value ?? "";
-    const fundraisingLink = document.getElementById("fundLink").value ?? "";
+  const tagsText = (document.getElementById("tagsText")?.value || "").trim();
+  const fundraisingLink = (document.getElementById("fundLink")?.value || "").trim();
 
-    active = startNewChallenge({ tagsText, fundraisingLink });
+  active = startNewChallenge({ tagsText, fundraisingLink });
 
-    setHeaderEnabled(true);
-    currentPark = "mk";
-    parkSelect.value = currentPark;
-    applyParkTheme(currentPark);
-    renderParkPage({ readOnly: false });
-  });
+  // IMPORTANT: force these onto the active challenge object and persist
+  active.tagsText = tagsText;
+  active.fundraisingLink = fundraisingLink;
+  saveActiveChallenge(active);
+
+  setHeaderEnabled(true);
+  currentPark = "mk";
+  parkSelect.value = currentPark;
+  applyParkTheme(currentPark);
+  renderParkPage({ readOnly: false });
+});
+
 
   const accessLastBtn = document.getElementById("accessLastBtn");
   if (accessLastBtn) {
@@ -602,6 +608,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
