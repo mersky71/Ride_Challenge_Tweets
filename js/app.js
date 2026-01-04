@@ -32,6 +32,7 @@ const moreBtn = document.getElementById("moreBtn");
 const moreMenu = document.getElementById("moreMenu");
 const endToStartBtn = document.getElementById("endToStartBtn");
 
+// Title in header (index.html uses id="appTitle")
 const appTitle = document.getElementById("appTitle");
 
 let rides = [];
@@ -49,7 +50,7 @@ async function init() {
 
   active = loadActiveChallenge();
 
-  // If there's an active challenge but it's not "today" (with cutoff logic handled in storage.js),
+  // If there's an active challenge but it's not "today" (cutoff logic handled in storage.js),
   // show Start page.
   if (active && !isActiveChallengeForNow(active)) {
     renderStartPage({ canAccessLast: !!loadLastChallenge() });
@@ -117,25 +118,33 @@ function setupMoreMenu() {
       }
     });
   });
+
+  // NEW: Tweet update moved into More menu (index.html button id="tweetUpdateMenuBtn")
+  const tweetUpdateMenuBtn = document.getElementById("tweetUpdateMenuBtn");
+  tweetUpdateMenuBtn?.addEventListener("click", () => {
+    moreBtn.setAttribute("aria-expanded", "false");
+    moreMenu.setAttribute("aria-hidden", "true");
+
+    if (!active || !active.events || active.events.length === 0) {
+      showToast("Log at least one ride first.");
+      return;
+    }
+
+    // We'll wire image generation later (image_export.js)
+    showToast("Update image generation is next (image_export.js).");
+  });
 }
 
-
 function setHeaderEnabled(enabled) {
-  // Add a mode flag to the page for CSS
-  document.body.classList.toggle("inChallenge", enabled);
+  // Hide app title on park pages
+  if (appTitle) appTitle.style.display = enabled ? "none" : "block";
 
-  // Hide/show title (use both hidden + display for robustness)
-  if (appTitle) {
-    appTitle.hidden = enabled;
-    appTitle.setAttribute("aria-hidden", enabled ? "true" : "false");
-    appTitle.style.display = enabled ? "none" : "";
-  }
-
-  // Controls
+  // Show/hide controls
   parkSelect.style.display = enabled ? "inline-flex" : "none";
   moreBtn.style.display = enabled ? "inline-flex" : "none";
   counterPill.style.display = enabled ? "inline-flex" : "none";
 
+  // Enable/disable
   parkSelect.disabled = !enabled;
   moreBtn.disabled = !enabled;
 }
@@ -187,23 +196,17 @@ Help me support @GKTWVillage by donating at the link below</textarea>
   `;
 
   document.getElementById("startBtn")?.addEventListener("click", () => {
-  const tagsText = (document.getElementById("tagsText")?.value || "").trim();
-  const fundraisingLink = (document.getElementById("fundLink")?.value || "").trim();
+    const tagsText = document.getElementById("tagsText").value ?? "";
+    const fundraisingLink = document.getElementById("fundLink").value ?? "";
 
-  active = startNewChallenge({ tagsText, fundraisingLink });
+    active = startNewChallenge({ tagsText, fundraisingLink });
 
-  // IMPORTANT: force these onto the active challenge object and persist
-  active.tagsText = tagsText;
-  active.fundraisingLink = fundraisingLink;
-  saveActiveChallenge(active);
-
-  setHeaderEnabled(true);
-  currentPark = "mk";
-  parkSelect.value = currentPark;
-  applyParkTheme(currentPark);
-  renderParkPage({ readOnly: false });
-});
-
+    setHeaderEnabled(true);
+    currentPark = "mk";
+    parkSelect.value = currentPark;
+    applyParkTheme(currentPark);
+    renderParkPage({ readOnly: false });
+  });
 
   const accessLastBtn = document.getElementById("accessLastBtn");
   if (accessLastBtn) {
@@ -224,66 +227,24 @@ Help me support @GKTWVillage by donating at the link below</textarea>
 function renderParkPage({ readOnly = false } = {}) {
   if (!active) return;
 
-  const parkName = PARKS.find(p => p.id === currentPark)?.name ?? "";
   const parkRides = rides
     .filter(r => r.park === currentPark)
     .sort((a, b) => (a.sortKey || "").localeCompare(b.sortKey || "", "en", { sensitivity: "base" }));
 
   const completedMap = buildCompletedMap(active.events);
-  const parkEventIndexes = active.events
-    .map((e, idx) => ({ e, idx }))
-    .filter(x => x.e.park === currentPark);
 
-  counterPill.textContent = `${active.events.length} rides today`;
+  // Header pill text
+  counterPill.textContent = `Rides: ${active.events.length}`;
 
+  // Park page now only shows ride list (no park banner card)
   appEl.innerHTML = `
     <div class="stack">
-      <div class="card">
-        <div class="sectionTitle">
-          <h2>${escapeHtml(parkName)}</h2>
-          <div class="subtle">${readOnly ? "Read-only view" : ""}</div>
-        </div>
-
-        <div class="btnRow" style="margin-top:10px;">
-          <button id="undoLastBtn" class="btn" type="button" ${readOnly || parkEventIndexes.length === 0 ? "disabled" : ""}>
-            Undo last (this park)
-          </button>
-          <button id="tweetUpdateBtn" class="btn" type="button" ${active.events.length === 0 ? "disabled" : ""}>
-            Tweet an update (image)
-          </button>
-        </div>
-      </div>
-
       <div class="rides" role="list">
         ${parkRides.map(r => renderRideRow(r, completedMap, readOnly)).join("")}
       </div>
     </div>
   `;
 
-  document.getElementById("undoLastBtn")?.addEventListener("click", () => {
-    const lastParkEvent = [...active.events].reverse().find(e => e.park === currentPark);
-    if (!lastParkEvent) return;
-
-    openConfirmDialog({
-      title: `Undo today’s completion for ${lastParkEvent.rideName}?`,
-      body: "",
-      confirmText: "Undo completion",
-      onConfirm: () => {
-        active.events = active.events.filter(e => e.id !== lastParkEvent.id);
-        saveActiveChallenge(active);
-        renderParkPage({ readOnly });
-      }
-    });
-  });
-
-  document.getElementById("tweetUpdateBtn")?.addEventListener("click", () => {
-    // We'll wire image generation next (image_export.js)
-    showToast("Update image generation is next (image_export.js).");
-  });
-
-  // Wire clicks:
-  // - For rides WITHOUT LL/SR: tap ride name logs standby
-  // - For rides WITH LL/SR: buttons log; completed buttons open edit dialog
   for (const r of parkRides) {
     const hasLL = !!r.ll;
     const hasSR = !!r.sr;
@@ -300,46 +261,19 @@ function renderParkPage({ readOnly = false } = {}) {
           logRide(r, "standby");
         });
       } else {
-        // Standby button always present in rows with LL/SR
-        document.querySelector(`[data-line="${r.id}:standby"]`)?.addEventListener("click", () => {
-          if (!isCompleted) return logRide(r, "standby");
-          openEditDialog(r, info, "standby");
-        });
-
-        if (hasLL) {
-          document.querySelector(`[data-line="${r.id}:ll"]`)?.addEventListener("click", () => {
-            if (!isCompleted) return logRide(r, "ll");
-            openEditDialog(r, info, "ll");
-          });
-        }
-        if (hasSR) {
-          document.querySelector(`[data-line="${r.id}:sr"]`)?.addEventListener("click", () => {
-            if (!isCompleted) return logRide(r, "sr");
-            openEditDialog(r, info, "sr");
-          });
+        // Buttons exist only when NOT completed
+        if (!isCompleted) {
+          document.querySelector(`[data-line="${r.id}:standby"]`)?.addEventListener("click", () => logRide(r, "standby"));
+          if (hasLL) document.querySelector(`[data-line="${r.id}:ll"]`)?.addEventListener("click", () => logRide(r, "ll"));
+          if (hasSR) document.querySelector(`[data-line="${r.id}:sr"]`)?.addEventListener("click", () => logRide(r, "sr"));
         }
       }
 
-      // Undo completion per ride
+      // Undo/Edit button (only exists when completed)
       document.querySelector(`[data-undo="${r.id}"]`)?.addEventListener("click", () => {
         const eventInfo = completedMap.get(r.id);
         if (!eventInfo) return;
-
-        const isMostRecent = eventInfo.index === active.events.length - 1;
-        const warn = !isMostRecent
-          ? "This will renumber later rides today. Previously sent tweets won’t be changed."
-          : "";
-
-        openConfirmDialog({
-          title: `Undo today’s completion for ${r.name}?`,
-          body: warn,
-          confirmText: "Undo completion",
-          onConfirm: () => {
-            active.events = active.events.filter(e => e.id !== eventInfo.event.id);
-            saveActiveChallenge(active);
-            renderParkPage({ readOnly });
-          }
-        });
+        openUndoEditDialog(r, eventInfo);
       });
     }
   }
@@ -354,26 +288,21 @@ function renderRideRow(r, completedMap, readOnly) {
   const hasAnyAlt = hasLL || hasSR;
 
   // Row 1: ride name only
-  // For rides with no LL/SR, the ride name is clickable to log standby (only if not completed & not readOnly).
   const nameIsClickable = !readOnly && !completed && !hasAnyAlt;
   const nameHtml = nameIsClickable
     ? `<button type="button" class="rideName" style="all:unset;display:block;cursor:pointer;font-weight:600;font-size:16px;" data-log-name="${r.id}">${escapeHtml(r.name)}</button>`
     : `<p class="rideName">${escapeHtml(r.name)}</p>`;
 
-  const suffixHtml = completed ? renderCompletedSuffix(info.event.mode, hasAnyAlt) : "";
+  // Row 2 for completed rides: "- completed using ..."
+  const suffixHtml = completed ? renderCompletedSuffix(info.event.mode) : "";
 
-  // Row 2: buttons only if applicable
+  // Row 2 for uncompleted rides: line buttons (if applicable)
   let buttonsHtml = "";
-  if (hasAnyAlt) {
+  if (hasAnyAlt && !completed) {
     const colsClass = hasSR ? "three" : "two";
-
-    const standbySelected = completed && info.event.mode === "standby";
-    const llSelected = completed && info.event.mode === "ll";
-    const srSelected = completed && info.event.mode === "sr";
-
-    const standbyBtn = renderLineButton(r.id, "standby", "Standby Line", standbySelected, readOnly);
-    const llBtn = hasLL ? renderLineButton(r.id, "ll", "Lightning Lane", llSelected, readOnly) : "";
-    const srBtn = hasSR ? renderLineButton(r.id, "sr", "Single Rider", srSelected, readOnly) : "";
+    const standbyBtn = renderLineButton(r.id, "standby", "Standby Line", false, readOnly);
+    const llBtn = hasLL ? renderLineButton(r.id, "ll", "Lightning Lane", false, readOnly) : "";
+    const srBtn = hasSR ? renderLineButton(r.id, "sr", "Single Rider", false, readOnly) : "";
 
     buttonsHtml = `
       <div class="lineButtons ${colsClass}">
@@ -385,13 +314,14 @@ function renderRideRow(r, completedMap, readOnly) {
   }
 
   const undoHtml = completed && !readOnly
-    ? `<button class="smallBtn" type="button" data-undo="${r.id}">Undo completion</button>`
+    ? `<button class="smallBtn" type="button" data-undo="${r.id}">Undo/Edit</button>`
     : "";
 
   return `
     <div class="rideRow ${completed ? "completed" : ""}" role="listitem">
       <div class="rideMain">
-        ${nameHtml}${suffixHtml}
+        ${nameHtml}
+        ${suffixHtml}
         ${buttonsHtml}
       </div>
       <div class="rideActions">${undoHtml}</div>
@@ -414,11 +344,12 @@ function renderLineButton(rideId, mode, label, selected, readOnly) {
   `;
 }
 
-function renderCompletedSuffix(mode, hadAltLines) {
-  if (!hadAltLines) return "";
-  if (mode === "ll") return ` <span class="subtle">— using Lightning Lane</span>`;
-  if (mode === "sr") return ` <span class="subtle">— using Single Rider</span>`;
-  return ` <span class="subtle">— using standby</span>`;
+function renderCompletedSuffix(mode) {
+  const label =
+    mode === "ll" ? "Lightning Lane" :
+    mode === "sr" ? "Single Rider" :
+    "Standby Line";
+  return `<div class="completedNote">- completed using ${label}</div>`;
 }
 
 function logRide(ride, mode) {
@@ -460,7 +391,6 @@ function buildRideTweet({ rideNumber, rideName, mode, timeLabel }) {
   return `${base}${mid} at ${timeLabel}`;
 }
 
-
 function openTweetDraft(mainText) {
   const tags = (active?.tagsText ?? "").trim();
   const link = (active?.fundraisingLink ?? "").trim();
@@ -480,15 +410,12 @@ function buildCompletedMap(events) {
   return m;
 }
 
-// Opens edit dialog when a completed ride's line button is tapped
-function openEditDialog(ride, info, tappedMode) {
+// Line-type editor used by Undo/Edit
+function openLineEditDialog(ride, info) {
   if (!active || !info) return;
 
   const idx = info.index;
   const currentMode = info.event.mode;
-
-  // If they tapped the already-selected mode, do nothing (reduces accidental edits)
-  if (tappedMode === currentMode) return;
 
   openDialog({
     title: `Edit line used for ${ride.name}?`,
@@ -532,11 +459,62 @@ function openEditDialog(ride, info, tappedMode) {
       const line =
         picked === "ll" ? "Lightning Lane" :
         picked === "sr" ? "Single Rider" :
-        "standby";
+        "Standby Line";
       const txt = `Correction: Ride ${rideNumber}. ${ride.name} was via ${line}.`;
       openTweetDraft(txt);
     }
   }
+}
+
+// Legacy entry point (kept so older code paths won't break if reintroduced)
+function openEditDialog(ride, info, tappedMode) {
+  if (!info) return;
+  const currentMode = info.event.mode;
+  if (tappedMode && tappedMode === currentMode) return;
+  openLineEditDialog(ride, info);
+}
+
+// Undo/Edit dialog for completed rides
+function openUndoEditDialog(ride, eventInfo) {
+  const hasAlt = !!ride.ll || !!ride.sr;
+
+  const isMostRecent = eventInfo.index === active.events.length - 1;
+  const warn = !isMostRecent
+    ? "Note: This will renumber later rides today. Previously sent tweets won’t be changed."
+    : "";
+
+  const buttons = [
+    {
+      text: "Undo completion",
+      className: "btn btnPrimary",
+      action: () => {
+        closeDialog();
+        active.events = active.events.filter(e => e.id !== eventInfo.event.id);
+        saveActiveChallenge(active);
+        renderParkPage({ readOnly: false });
+      }
+    }
+  ];
+
+  if (hasAlt) {
+    buttons.push({
+      text: "Edit line used",
+      className: "btn",
+      action: () => {
+        closeDialog();
+        openLineEditDialog(ride, eventInfo);
+      }
+    });
+  }
+
+  buttons.push({ text: "Cancel", className: "btn", action: () => closeDialog() });
+
+  openDialog({
+    title: `Undo/Edit: ${ride.name}`,
+    body: warn,
+    content: "",
+    buttons
+  });
 }
 
 function openConfirmDialog({ title, body, confirmText, confirmClass, onConfirm }) {
@@ -608,10 +586,3 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
-
-
-
-
-
-
