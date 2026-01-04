@@ -377,6 +377,12 @@ hr.sep{
   overflow-x: auto;  /* safety on very small screens */
 }
 
+.lineButtons.one{
+  justify-content: flex-start;
+}
+
+
+
 .lineButtons.two{
   grid-template-columns: 1fr 1fr;
 }
@@ -479,6 +485,7 @@ body.inChallenge #appTitle {
   border-color: var(--park);
   color: #ffffff;
 }
+
 
 
 
