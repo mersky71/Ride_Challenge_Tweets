@@ -137,7 +137,7 @@ function applyParkTheme(parkId) {
 
 function renderStartPage({ canAccessLast }) {
   appEl.innerHTML = `
-    <div class="stack">
+    <div class="stack startPage">
       <div class="card">
         <div class="h1">Welcome</div>
         <p class="p">
@@ -219,7 +219,7 @@ function renderParkPage({ readOnly = false } = {}) {
   counterPill.textContent = `${active.events.length} rides today`;
 
   appEl.innerHTML = `
-    <div class="stack">
+    <div class="stack startPage">
       <div class="card">
         <div class="sectionTitle">
           <h2>${escapeHtml(parkName)}</h2>
@@ -582,5 +582,6 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
