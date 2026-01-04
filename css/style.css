@@ -14,13 +14,14 @@
 
 *{ box-sizing: border-box; }
 html,body{ height:100%; }
+
 body{
   margin:0;
   font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-  background: radial-gradient(1200px 600px at 30% -10%, var(--park2), transparent),
-              linear-gradient(180deg, #0b0f14 0%, #070b10 100%);
-  color: var(--text);
+  background: #ffffff;
+  color: #111;
 }
+
 
 .sr-only{
   position:absolute;
@@ -123,9 +124,9 @@ body{
 }
 
 .card{
-  border: 1px solid var(--line);
-  background: rgba(16,23,35,.72);
-  border-radius: 18px;
+  border: 1px solid #ddd;
+  background: #ffffff;
+  border-radius: 16px;
   padding: 14px;
 }
 
@@ -196,20 +197,22 @@ body{
 }
 .rideRow{
   display:flex;
-  align-items:flex-start;
-  gap: 10px;
-  padding: 12px 12px;
-  border-top: 1px solid var(--line);
-  background: rgba(16,23,35,.55);
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border-top: 1px solid #eee;
+  background: #ffffff;
 }
+
 .rideRow:first-child{ border-top:none; }
 
 .rideMain{ flex:1; min-width: 0; }
 .rideName{
-  font-weight: 750;
+  font-size: 16px;
+  font-weight: 600;
   margin: 0;
-  font-size: 15px;
 }
+
 .rideMeta{
   margin-top: 4px;
   color: var(--muted);
@@ -252,8 +255,9 @@ body{
 }
 
 .completed{
-  opacity: .70;
+  opacity: 0.55;
 }
+
 .completed .rideName{ text-decoration: none; }
 
 hr.sep{
@@ -309,7 +313,7 @@ hr.sep{
 
 /* Make header text/buttons readable on bold park color */
 .topbar, .topbar *{
-  color: #fff;
+   color: #ffffff;
 }
 
 .parkSelect,
@@ -341,4 +345,45 @@ hr.sep{
 }
 .app{
   padding-bottom: 60px;  /* keeps content above footer */
+}
+
+/* --- Ride line buttons --- */
+.lineButtons{
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.lineButtons.two{
+  grid-template-columns: 1fr 1fr;
+}
+
+.lineButtons.three{
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.lineBtn{
+  padding: 10px 8px;
+  border-radius: 8px;
+  border: 2px solid var(--park);
+  background: #ffffff;
+  color: var(--park);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lineBtn:hover{
+  background: rgba(0,0,0,.04);
+}
+
+.lineBtn.selected{
+  background: var(--park);
+  color: #ffffff;
+  border-color: var(--park);
+}
+
+.lineBtn.disabled{
+  opacity: .35;
+  cursor: default;
 }
