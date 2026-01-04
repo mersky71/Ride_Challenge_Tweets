@@ -16,16 +16,23 @@
     </div>
 
     <div class="topbar__center">
+      <!-- Counter first (left of park selector) -->
+      <div id="counterPill" class="pill" aria-live="polite">Rides: —</div>
+
       <label class="sr-only" for="parkSelect">Park</label>
       <select id="parkSelect" class="parkSelect" disabled></select>
-      <div id="counterPill" class="pill" aria-live="polite">—</div>
     </div>
 
     <div class="topbar__right">
       <button id="moreBtn" class="iconBtn" type="button" aria-haspopup="menu" aria-expanded="false" title="More">
-        ?
+        More
       </button>
       <div id="moreMenu" class="menu" role="menu" aria-hidden="true">
+        <!-- New menu option (JS will wire this up next) -->
+        <button id="tweetUpdateMenuBtn" class="menu__item" role="menuitem" type="button">
+          Tweet an update (image)
+        </button>
+
         <button id="endToStartBtn" class="menu__item" role="menuitem" type="button">
           End today’s challenge and return to Start
         </button>
@@ -40,8 +47,5 @@
 
   <script type="module" src="./js/app.js"></script>
   <footer class="bottombar" aria-hidden="true"></footer>
-
 </body>
-
 </html>
-
