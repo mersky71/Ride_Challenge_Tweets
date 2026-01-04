@@ -28,6 +28,7 @@ body{
   padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0;
 }
 
+
 .topbar{
   position: sticky;
   top: 0;
@@ -37,9 +38,11 @@ body{
   justify-content:space-between;
   gap:12px;
   padding:10px 12px;
-  border-bottom: 1px solid var(--line);
-  backdrop-filter: blur(10px);
-  background: rgba(11,15,20,.72);
+
+  /* BOLD PARK COLOR BAR */
+  background: var(--park);
+  border-bottom: none;
+  backdrop-filter: none;
 }
 
 .brand{
@@ -300,4 +303,42 @@ hr.sep{
   color: var(--text);
   font-size: 13px;
   max-width: min(560px, calc(100% - 24px));
+
+}
+
+
+/* Make header text/buttons readable on bold park color */
+.topbar, .topbar *{
+  color: #fff;
+}
+
+.parkSelect,
+.pill,
+.iconBtn{
+  border: 1px solid rgba(255,255,255,.35);
+  background: rgba(0,0,0,.18);
+  color: #fff;
+}
+
+.parkSelect option{
+  color: #000; /* dropdown list items */
+}
+
+/* Optional: make the brand dot unnecessary (can keep it) */
+.brand__dot{
+  background: rgba(255,255,255,.95);
+  box-shadow: 0 0 0 4px rgba(255,255,255,.22);
+}
+
+.bottombar{
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 18px;          /* tweak if you want thicker/thinner */
+  background: var(--park);
+  z-index: 10;
+}
+.app{
+  padding-bottom: 60px;  /* keeps content above footer */
 }
