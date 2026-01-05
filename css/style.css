@@ -500,6 +500,11 @@ body.inChallenge #appTitle {
   color: #6b7280;
 }
 
+/* Allow primary buttons on Start page to keep white text */
+.startPage .btnPrimary{
+  color: #ffffff !important;
+}
+
 
 
 
