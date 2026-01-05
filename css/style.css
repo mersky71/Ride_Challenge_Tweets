@@ -218,7 +218,7 @@ body{
   border-top: 1px solid #e5e7eb; /* subtle divider */
 }
 
-.rideMain{ flex:1; min-width: 0; }
+.rideMain{ flex:1; min-width: 0; width: 100%;}
 .rideName{
   font-size: 16px;
   font-weight: 600;
@@ -297,6 +297,7 @@ body{
 }
 
 .completedMeta .smallBtn{
+  margin-left: auto; /* hard-pins button to the right */
   flex-shrink: 0;
 }
 /* Completed rides no longer use the separate actions row */
@@ -531,6 +532,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
