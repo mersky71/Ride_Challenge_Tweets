@@ -486,6 +486,12 @@ function shortRideNameFor(rideId, fallbackName) {
   return r.shortName || r.short || r.nickname || r.name || fallbackName || "Ride";
 }
 
+function mediumRideNameFor(rideId, fallbackName) {
+  const r = ridesById.get(rideId);
+  return (r && (r.mediumName || r.name)) ? (r.mediumName || r.name) : (fallbackName || "");
+}
+
+
 function lineAbbrev(mode) {
   if (mode === "ll") return "LL";
   if (mode === "sr") return "SR";
@@ -596,7 +602,7 @@ async function renderUpdateImagePng(ch) {
     const ty = rowTop + 23;
 
     const timeStr = e.timeISO ? formatTime12(new Date(e.timeISO)) : "";
-    const rideStr = shortRideNameFor(e.rideId, e.rideName);
+    const rideStr = mediumRideNameFor(e.rideId, e.rideName);
     const rideText = truncateToWidth(ctx, rideStr, colRide - 12);
     const lineStr = lineAbbrev(e.mode);
 
@@ -685,6 +691,8 @@ function showUpdateImageDialog({ blob, headerText }) {
     }
   });
 }
+
+
 
 /* ==========================
    Undo/Edit logic
@@ -855,5 +863,6 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
