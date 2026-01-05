@@ -581,23 +581,33 @@ function logRide(ride, mode) {
   active.events.push(event);
   saveActiveChallenge(active);
 
+  const llNumber =
+  mode === "ll"
+    ? (active?.events?.filter(e => e.mode === "ll").length || 0)
+    : null;
+
   const tweetText = buildRideTweet({
     rideNumber,
     rideName: ride.name,
     mode,
-    timeLabel
+    timeLabel,
+    llNumber
   });
 
+  
   openTweetDraft(tweetText);
   renderParkPage({ readOnly: false });
 }
 
-function buildRideTweet({ rideNumber, rideName, mode, timeLabel }) {
+function buildRideTweet({ rideNumber, rideName, mode, timeLabel, llNumber }) {
   const base = `Ride ${rideNumber}. ${rideName}`;
+
+  // Only mention the line type if it's NOT standby (standby is the default) and  add count of LL
   const mid =
-    mode === "ll" ? " using Lightning Lane" :
+    mode === "ll" ? ` using Lightning Lane${llNumber ? ` #${llNumber}` : ""}` :
     mode === "sr" ? " using Single Rider" :
-    " using Standby Line";
+    "";
+
   return `${base}${mid} at ${timeLabel}`;
 }
 
@@ -1040,6 +1050,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
