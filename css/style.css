@@ -99,9 +99,11 @@ body{
 
 .menu{
   position:absolute;
-  right: 10px;
+  width: max-content;
+  min-width: 220px;   /* keeps it from getting too skinny */
+  right: 0;
+  left: auto;
   top: 56px;
-  min-width: 280px;
   padding: 6px;
   border-radius: 14px;
   border: 1px solid var(--line);
@@ -504,6 +506,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
