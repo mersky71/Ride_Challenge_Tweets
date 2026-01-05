@@ -750,48 +750,41 @@ function openLineEditDialog(ride, info) {
   }
 }
 
+
 function openUndoEditDialog(ride, eventInfo) {
   const hasAlt = !!ride.ll || !!ride.sr;
 
   const isMostRecent = eventInfo.index === active.events.length - 1;
-  const warn = !isMostRecent
-    ? "Note: This will renumber later rides today. Previously sent tweets won’t be changed."
-    : "";
 
   const buttons = [
     {
-  text: "Undo completion",
-  className: "btn btnPrimary",
-  action: () => {
-    const isMostRecent = eventInfo.index === active.events.length - 1;
+      text: "Undo completion",
+      className: "btn btnPrimary",
+      action: () => {
+        // If most recent, undo immediately (no renumber warning)
+        if (isMostRecent) {
+          closeDialog(); // close Undo/Edit popup
+          active.events = active.events.filter(e => e.id !== eventInfo.event.id);
+          saveActiveChallenge(active);
+          renderParkPage({ readOnly: false });
+          return;
+        }
 
-    // Most recent: undo immediately, no extra messaging
-    if (isMostRecent) {
-      closeDialog();
-      active.events = active.events.filter(e => e.id !== eventInfo.event.id);
-      saveActiveChallenge(active);
-      renderParkPage({ readOnly: false });
-      return;
-    }
-
-    // Not most recent: confirm popup
-    openConfirmDialog({
-      title: `${ride.name} is not your most recent ride`,
-      body:
-        `Future updates will reflect changed ride numbers.\n` +
-        `Previously sent tweets won’t be changed.`,
-      confirmText: "Undo completion",
-      onConfirm: () => {
-        // confirm dialog already closes itself in openConfirmDialog
-        closeDialog(); // closes the Undo/Edit dialog behind it (safe even if already empty)
-        active.events = active.events.filter(e => e.id !== eventInfo.event.id);
-        saveActiveChallenge(active);
-        renderParkPage({ readOnly: false });
+        // Not most recent: show a 2nd confirm popup *after* clicking Undo completion
+        openConfirmDialog({
+          title: `Undo today’s completion for ${ride.name}?`,
+          body: "Note: This will renumber some previous rides.\nPreviously sent tweets won’t be changed.",
+          confirmText: "Undo completion",
+          onConfirm: () => {
+            // Confirm dialog closes itself; also close the Undo/Edit popup behind it
+            closeDialog();
+            active.events = active.events.filter(e => e.id !== eventInfo.event.id);
+            saveActiveChallenge(active);
+            renderParkPage({ readOnly: false });
+          }
+        });
       }
-    });
-  }
-}
-
+    }
   ];
 
   if (hasAlt) {
@@ -799,14 +792,19 @@ function openUndoEditDialog(ride, eventInfo) {
       text: "Edit line used",
       className: "btn",
       action: () => {
-        closeDialog();
-        openLineEditDialog(ride, eventInfo);
+        closeDialog();          // close Undo/Edit popup
+        openLineEditDialog(ride, eventInfo); // opens the edit dialog (your “2nd popup”)
       }
     });
   }
 
-  buttons.push({ text: "Cancel", className: "btn", action: () => closeDialog() });
+  buttons.push({
+    text: "Cancel",
+    className: "btn",
+    action: () => closeDialog()
+  });
 
+  // Popup #1: always the same, no warning text
   openDialog({
     title: `Undo/Edit: ${ride.name}`,
     body: "",
@@ -883,6 +881,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
