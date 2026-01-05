@@ -640,9 +640,6 @@ function showUpdateImageDialog({ blob, headerText }) {
   dialogHost.innerHTML = `
     <div class="dialogBackdrop" role="presentation">
       <div class="dialog" role="dialog" aria-modal="true" style="max-width:520px;">
-        <h3>${escapeHtml("Tweet an update (image)")}</h3>
-        <p>${escapeHtml(headerText)}</p>
-
         <div style="margin:12px 0;">
           <img src="${url}" alt="Update image preview"
                style="width:100%;border:1px solid #e5e7eb;border-radius:12px;" />
@@ -863,6 +860,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
