@@ -278,7 +278,31 @@ body{
   margin-top: 4px;
   font-size: 13px;
   color: #444;
+  line-height: 1.2;
 }
+/* Completed rides: combine completion text + Undo/Edit into one compact row */
+.completedMeta{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 4px;  /* tight spacing under ride name */
+}
+
+.completedMeta .completedNote{
+  margin-top: 0;      /* remove extra vertical space (it’s now inside completedMeta) */
+  flex: 1;
+  min-width: 0;
+}
+
+.completedMeta .smallBtn{
+  flex-shrink: 0;
+}
+/* Completed rides no longer use the separate actions row */
+.rideRow.completed .rideActions{
+  display: none;
+}
+
 
 .completed .rideName{ text-decoration: none; }
 
@@ -506,6 +530,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
