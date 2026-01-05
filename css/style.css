@@ -101,6 +101,7 @@ body{
   position:absolute;
   width: max-content;
   min-width: 220px;   /* keeps it from getting too skinny */
+  max-width: calc(100vw - 16px);
   right: 0;
   left: auto;
   top: 56px;
@@ -506,6 +507,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
