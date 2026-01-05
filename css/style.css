@@ -99,8 +99,8 @@ body{
 
 .menu{
   position:absolute;
-  width: min(280px, calc(100vw - 32px)) ;
-  max-width: calc(100vw - 32px);
+  width: min(280px, calc(100vw - 24px)) ;
+  max-width: calc(100vw - 24px);
   right: 0;
   left: auto;
   top: 56px;
@@ -506,6 +506,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
