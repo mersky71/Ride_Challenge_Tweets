@@ -168,7 +168,7 @@ body{
 .btnPrimary{
   border-color: transparent;
   background: var(--park);
-  color: var(--parkText);
+  color: #ffffff;
 }
 .btnDanger{
   border-color: rgba(255,120,120,.22);
@@ -499,6 +499,7 @@ body.inChallenge #appTitle {
 .startPage .input::placeholder{
   color: #6b7280;
 }
+
 
 
 
