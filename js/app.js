@@ -230,14 +230,14 @@ function renderStartPage({ canAccessLast }) {
       <div class="card">
         <div class="h1">Welcome</div>
         <p class="p">
-          This app helps track rides and generate draft tweets for an Every Ride Challenge.
+          This experimental  app helps track rides and generate draft tweets for an Every Ride Challenge.
         </p>
         <p class="p" style="margin-top:10px;">
           It was created by an ordinary person (not a professional software engineer!) with the help of ChatGPT.
           Please manage expectations accordingly 🙂
         </p>
         <p class="p" style="margin-top:10px;">
-          If something doesn’t work for you, feel free to compose your ride tweets manually.
+          If it breaks down on you, please be prepared to compose your ride tweets manually!
         </p>
       </div>
 
@@ -881,6 +881,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
