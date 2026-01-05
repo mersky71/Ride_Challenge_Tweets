@@ -377,6 +377,7 @@ hr.sep{
   overflow-x: auto;  /* safety on very small screens */
 }
 
+/* When only Standby button exists, keep it left-aligned */
 .lineButtons.one{
   justify-content: flex-start;
 }
@@ -485,6 +486,20 @@ body.inChallenge #appTitle {
   border-color: var(--park);
   color: #ffffff;
 }
+
+/* Start page readability: lighter inputs */
+.startPage .input,
+.startPage .textarea{
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid #e5e7eb;
+}
+
+.startPage .textarea::placeholder,
+.startPage .input::placeholder{
+  color: #6b7280;
+}
+
 
 
 
