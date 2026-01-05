@@ -760,15 +760,38 @@ function openUndoEditDialog(ride, eventInfo) {
 
   const buttons = [
     {
-      text: "Undo completion",
-      className: "btn btnPrimary",
-      action: () => {
-        closeDialog();
+  text: "Undo completion",
+  className: "btn btnPrimary",
+  action: () => {
+    const isMostRecent = eventInfo.index === active.events.length - 1;
+
+    // Most recent: undo immediately, no extra messaging
+    if (isMostRecent) {
+      closeDialog();
+      active.events = active.events.filter(e => e.id !== eventInfo.event.id);
+      saveActiveChallenge(active);
+      renderParkPage({ readOnly: false });
+      return;
+    }
+
+    // Not most recent: confirm popup
+    openConfirmDialog({
+      title: `${ride.name} is not your most recent ride`,
+      body:
+        `Future updates will reflect changed ride numbers.\n` +
+        `Previously sent tweets won’t be changed.`,
+      confirmText: "Undo completion",
+      onConfirm: () => {
+        // confirm dialog already closes itself in openConfirmDialog
+        closeDialog(); // closes the Undo/Edit dialog behind it (safe even if already empty)
         active.events = active.events.filter(e => e.id !== eventInfo.event.id);
         saveActiveChallenge(active);
         renderParkPage({ readOnly: false });
       }
-    }
+    });
+  }
+}
+
   ];
 
   if (hasAlt) {
@@ -786,7 +809,7 @@ function openUndoEditDialog(ride, eventInfo) {
 
   openDialog({
     title: `Undo/Edit: ${ride.name}`,
-    body: warn,
+    body: "",
     content: "",
     buttons
   });
@@ -860,6 +883,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
