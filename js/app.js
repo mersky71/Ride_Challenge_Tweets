@@ -670,10 +670,25 @@ function truncateToWidth(ctx, text, maxWidth) {
 
 async function renderUpdateImagePng(ch) {
   const events = ch?.events || [];
-  const now = new Date();
+
+  // Determine "as of" time = time of most recent ride (fallback to now)
+  const lastEvent = [...events]
+    .filter(e => e.timeISO)
+    .sort((a, b) => new Date(b.timeISO) - new Date(a.timeISO))[0];
+
+  const asOfDate = lastEvent?.timeISO
+    ? new Date(lastEvent.timeISO)
+    : new Date();
+
+  // Use the challenge day for the date label (unchanged)
   const dateLabel = formatDayKeyLong(ch?.dayKey);
-  const headerLine1 = dateLabel ? `${dateLabel} challenge run` : `Challenge run`;
-  const headerLine2 = `${events.length} rides as of ${formatTime12(now)}`;
+
+  // Header lines
+  const headerLine1 = dateLabel
+    ? `${dateLabel} challenge run`
+    : `Challenge run`;
+
+  const headerLine2 = `${events.length} rides as of ${formatTime12(asOfDate)}`;
 
   // Keep returning headerText for share text (use both lines)
   const headerText = `${headerLine1} — ${headerLine2}`;
@@ -709,7 +724,7 @@ async function renderUpdateImagePng(ch) {
   ctx.fillStyle = "#111827";
 
   // Line 1 (date)
-  ctx.font = "700 22px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.font = "700 28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
   ctx.fillText(headerLine1, pad, pad + 26);
 
   // Line 2 (rides as of time)
@@ -1049,6 +1064,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
