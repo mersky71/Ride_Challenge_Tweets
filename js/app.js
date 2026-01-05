@@ -5,7 +5,12 @@ import {
   clearActiveChallenge,
   loadLastChallenge,
   startNewChallenge,
-  isActiveChallengeForNow
+  isActiveChallengeForNow,
+  // NEW:
+  archiveChallengeToHistory,
+  loadChallengeHistory,
+  setChallengeSaved,
+  deleteChallengeFromHistory
 } from "./storage.js";
 
 const PARKS = [
@@ -35,8 +40,6 @@ const dialogHost = document.getElementById("dialogHost");
 const moreBtn = document.getElementById("moreBtn");
 const moreMenu = document.getElementById("moreMenu");
 const endToStartBtn = document.getElementById("endToStartBtn");
-
-// Title in header (index.html uses id="appTitle")
 const appTitle = document.getElementById("appTitle");
 
 let rides = [];
@@ -107,45 +110,15 @@ function setupMoreMenu() {
     moreMenu.setAttribute("aria-hidden", "true");
   });
 
-  endToStartBtn.addEventListener("click", () => {
+  // Saved Challenges
+  const savedChallengesMenuBtn = document.getElementById("savedChallengesMenuBtn");
+  savedChallengesMenuBtn?.addEventListener("click", () => {
     moreBtn.setAttribute("aria-expanded", "false");
     moreMenu.setAttribute("aria-hidden", "true");
-
-    openConfirmDialog({
-      title: "End today’s challenge?",
-      body: "This will clear all rides logged today and return you to the Start page. You can begin a new challenge immediately.",
-      confirmText: "End challenge and return to Start",
-      confirmClass: "btnDanger",
-      onConfirm: () => {
-        clearActiveChallenge();
-        active = null;
-        setHeaderEnabled(false);
-        applyParkTheme("home");
-        renderStartPage({ canAccessLast: !!loadLastChallenge() });
-      }
-    });
+    openSavedChallengesDialog();
   });
 
-  // Tweet update (image) in More menu
-  const tweetUpdateMenuBtn = document.getElementById("tweetUpdateMenuBtn");
-  tweetUpdateMenuBtn?.addEventListener("click", async () => {
-    moreBtn.setAttribute("aria-expanded", "false");
-    moreMenu.setAttribute("aria-hidden", "true");
-
-    if (!active || !active.events || active.events.length === 0) {
-      showToast("Log at least one ride first.");
-      return;
-    }
-
-    try {
-      const { blob, headerText } = await renderUpdateImagePng(active);
-      showUpdateImageDialog({ blob, headerText });
-    } catch (e) {
-      console.error(e);
-      showToast("Sorry — could not create the image on this device.");
-    }
-  });
-    // Settings in More menu
+  // Settings
   const settingsMenuBtn = document.getElementById("settingsMenuBtn");
   settingsMenuBtn?.addEventListener("click", () => {
     moreBtn.setAttribute("aria-expanded", "false");
@@ -201,6 +174,51 @@ function setupMoreMenu() {
     });
   });
 
+  // Tweet update (image) in More menu
+  const tweetUpdateMenuBtn = document.getElementById("tweetUpdateMenuBtn");
+  tweetUpdateMenuBtn?.addEventListener("click", async () => {
+    moreBtn.setAttribute("aria-expanded", "false");
+    moreMenu.setAttribute("aria-hidden", "true");
+
+    if (!active || !active.events || active.events.length === 0) {
+      showToast("Log at least one ride first.");
+      return;
+    }
+
+    try {
+      const { blob, headerText } = await renderUpdateImagePng(active);
+      showUpdateImageDialog({ blob, headerText });
+    } catch (e) {
+      console.error(e);
+      showToast("Sorry — could not create the image on this device.");
+    }
+  });
+
+  // End challenge (auto-save into history as "Recent")
+  endToStartBtn.addEventListener("click", () => {
+    moreBtn.setAttribute("aria-expanded", "false");
+    moreMenu.setAttribute("aria-hidden", "true");
+
+    openConfirmDialog({
+      title: "End today’s challenge?",
+      body: "This will save today into Recent history, clear all rides logged today, and return you to the Start page. You can begin a new challenge immediately.",
+      confirmText: "End challenge and return to Start",
+      confirmClass: "btnDanger",
+      onConfirm: () => {
+        if (active) {
+          // Save into history as recent (not permanently “Saved” yet)
+          archiveChallengeToHistory({ ...active, endedAt: new Date().toISOString() }, { saved: false });
+        }
+
+        clearActiveChallenge();
+        active = null;
+
+        setHeaderEnabled(false);
+        applyParkTheme("home");
+        renderStartPage({ canAccessLast: !!loadLastChallenge() });
+      }
+    });
+  });
 }
 
 function setHeaderEnabled(enabled) {
@@ -230,14 +248,14 @@ function renderStartPage({ canAccessLast }) {
       <div class="card">
         <div class="h1">Welcome</div>
         <p class="p">
-          This experimental  app helps track rides and generate draft tweets for an Every Ride Challenge.
+          This app helps track rides and generate draft tweets for an Every Ride Challenge.
         </p>
         <p class="p" style="margin-top:10px;">
           It was created by an ordinary person (not a professional software engineer!) with the help of ChatGPT.
           Please manage expectations accordingly 🙂
         </p>
         <p class="p" style="margin-top:10px;">
-          If it breaks down on you, please be prepared to compose your ride tweets manually!
+          If something doesn’t work for you, feel free to compose your ride tweets manually.
         </p>
       </div>
 
@@ -257,6 +275,7 @@ Help me support @GKTWVillage by donating at the link below</textarea>
 
         <div class="btnRow" style="margin-top:12px;">
           <button id="startBtn" class="btn btnPrimary" type="button">Start a new challenge</button>
+          <button id="viewSavedBtn" class="btn btnPrimary" type="button">View Saved Challenges</button>
           ${canAccessLast ? `<button id="accessLastBtn" class="btn" type="button">Access most recent challenge</button>` : ""}
         </div>
       </div>
@@ -281,6 +300,10 @@ Help me support @GKTWVillage by donating at the link below</textarea>
     renderParkPage({ readOnly: false });
   });
 
+  document.getElementById("viewSavedBtn")?.addEventListener("click", () => {
+    openSavedChallengesDialog();
+  });
+
   const accessLastBtn = document.getElementById("accessLastBtn");
   if (accessLastBtn) {
     accessLastBtn.addEventListener("click", () => {
@@ -296,6 +319,132 @@ Help me support @GKTWVillage by donating at the link below</textarea>
     });
   }
 }
+
+/* ==========================
+   Saved Challenges UI
+   ========================== */
+
+function openSavedChallengesDialog() {
+  const hist = loadChallengeHistory();
+
+  const sorted = [...hist].sort((a, b) => {
+    const ta = Date.parse(a.endedAt || a.startedAt || "") || 0;
+    const tb = Date.parse(b.endedAt || b.startedAt || "") || 0;
+    return tb - ta;
+  });
+
+  const saved = sorted.filter(x => x.saved === true);
+  const recent = sorted.filter(x => x.saved !== true).slice(0, 20);
+
+  const rowHtml = (ch, section) => {
+    const dateLabel = ch.dayKey || (ch.startedAt ? ch.startedAt.slice(0, 10) : "");
+    const ridesCount = (ch.events?.length ?? 0);
+
+    const viewBtn = `<button class="smallBtn" type="button" data-hview="${ch.id}">View</button>`;
+    const saveBtn = section === "recent"
+      ? `<button class="smallBtn" type="button" data-hsave="${ch.id}">Save</button>`
+      : "";
+    const delBtn = `<button class="smallBtn" type="button" data-hdel="${ch.id}">Delete</button>`;
+
+    return `
+      <tr>
+        <td style="white-space:nowrap;">${escapeHtml(dateLabel)}</td>
+        <td style="text-align:right; white-space:nowrap;">${ridesCount}</td>
+        <td style="white-space:nowrap; text-align:right;">
+          ${viewBtn}
+          ${saveBtn}
+          ${delBtn}
+        </td>
+      </tr>
+    `;
+  };
+
+  const tableHtml = (title, rowsHtml) => `
+    <div style="margin-top:10px;">
+      <div style="font-weight:700; margin:8px 0;">${escapeHtml(title)}</div>
+      <div style="overflow:auto; border:1px solid #e5e7eb; border-radius:12px;">
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr style="background:#f3f4f6;">
+              <th style="text-align:left; padding:10px;">Date</th>
+              <th style="text-align:right; padding:10px;">Rides</th>
+              <th style="text-align:right; padding:10px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rowsHtml || `<tr><td colspan="3" style="padding:12px; color:#6b7280;">None yet.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `;
+
+  openDialog({
+    title: "Saved Challenges",
+    body: "",
+    content: `
+      ${tableHtml("Saved", saved.map(ch => rowHtml(ch, "saved")).join(""))}
+      ${tableHtml("Recent (last 20)", recent.map(ch => rowHtml(ch, "recent")).join(""))}
+    `,
+    buttons: [{ text: "Close", className: "btn btnPrimary", action: () => closeDialog() }]
+  });
+
+  // Wire buttons
+  dialogHost.querySelectorAll("[data-hview]").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      const id = btn.getAttribute("data-hview");
+      const ch = loadChallengeHistory().find(x => x.id === id);
+      if (!ch) return;
+
+      if (!ch.events || ch.events.length === 0) {
+        showToast("No rides in this challenge.");
+        return;
+      }
+
+      try {
+        const { blob, headerText } = await renderUpdateImagePng(ch);
+        showUpdateImageDialog({ blob, headerText });
+      } catch (e) {
+        console.error(e);
+        showToast("Sorry — could not create the image on this device.");
+      }
+    });
+  });
+
+  dialogHost.querySelectorAll("[data-hsave]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-hsave");
+      setChallengeSaved(id, true);
+      // Re-open to refresh UI
+      closeDialog();
+      openSavedChallengesDialog();
+      showToast("Saved.");
+    });
+  });
+
+  dialogHost.querySelectorAll("[data-hdel]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const id = btn.getAttribute("data-hdel");
+
+      openConfirmDialog({
+        title: "Delete this challenge?",
+        body: "This will remove it from your device.",
+        confirmText: "Delete",
+        confirmClass: "btnDanger",
+        onConfirm: () => {
+          deleteChallengeFromHistory(id);
+          // refresh Saved Challenges dialog
+          closeDialog();
+          openSavedChallengesDialog();
+        }
+      });
+    });
+  });
+}
+
+/* ==========================
+   Park page + ride logging
+   ========================== */
 
 function renderParkPage({ readOnly = false } = {}) {
   if (!active) return;
@@ -480,17 +629,10 @@ function buildCompletedMap(events) {
    Tweet update (image) logic
    ========================== */
 
-function shortRideNameFor(rideId, fallbackName) {
-  const r = ridesById.get(rideId);
-  if (!r) return fallbackName || "Ride";
-  return r.shortName || r.short || r.nickname || r.name || fallbackName || "Ride";
-}
-
 function mediumRideNameFor(rideId, fallbackName) {
   const r = ridesById.get(rideId);
   return (r && (r.mediumName || r.name)) ? (r.mediumName || r.name) : (fallbackName || "");
 }
-
 
 function lineAbbrev(mode) {
   if (mode === "ll") return "LL";
@@ -521,7 +663,6 @@ async function renderUpdateImagePng(ch) {
   const now = new Date();
   const headerText = `${events.length} rides as of ${formatTime12(now)}`;
 
-  // NARROWER layout (short names)
   const pad = 22;
   const rowH = 34;
   const headH = 54;
@@ -531,7 +672,6 @@ async function renderUpdateImagePng(ch) {
   const colTime = 110;
   const colLine = 70;
 
-  // was 900; narrower now
   const W = 720;
   const tableW = W - pad * 2;
   const colRide = tableW - colN - colTime - colLine;
@@ -650,7 +790,6 @@ function showUpdateImageDialog({ blob, headerText }) {
           <button id="downloadUpdateImgBtn" type="button" class="btn ${canShareFile ? "" : "btnPrimary"}">Download image</button>
           <button id="closeUpdateImgBtn" type="button" class="btn">Close</button>
         </div>
-
       </div>
     </div>
   `;
@@ -689,10 +828,8 @@ function showUpdateImageDialog({ blob, headerText }) {
   });
 }
 
-
-
 /* ==========================
-   Undo/Edit logic
+   Undo/Edit logic (unchanged)
    ========================== */
 
 function openLineEditDialog(ride, info) {
@@ -750,7 +887,6 @@ function openLineEditDialog(ride, info) {
   }
 }
 
-
 function openUndoEditDialog(ride, eventInfo) {
   const hasAlt = !!ride.ll || !!ride.sr;
 
@@ -793,7 +929,7 @@ function openUndoEditDialog(ride, eventInfo) {
       className: "btn",
       action: () => {
         closeDialog();          // close Undo/Edit popup
-        openLineEditDialog(ride, eventInfo); // opens the edit dialog (your “2nd popup”)
+        openLineEditDialog(ride, eventInfo); // opens the edit dialog
       }
     });
   }
@@ -812,6 +948,10 @@ function openUndoEditDialog(ride, eventInfo) {
     buttons
   });
 }
+
+/* ==========================
+   Dialog + helpers
+   ========================== */
 
 function openConfirmDialog({ title, body, confirmText, confirmClass, onConfirm }) {
   openDialog({
@@ -881,10 +1021,3 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
-
-
-
-
-
-
