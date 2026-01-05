@@ -500,7 +500,13 @@ function renderRideRow(r, completedMap, readOnly) {
   const nameHtml = `<p class="rideName">${escapeHtml(r.name)}</p>`;
 
   // Row 2 for completed rides: "- completed using ..."
-  const suffixHtml = completed ? renderCompletedSuffix(info.event.mode, info.event.timeISO) : "";
+  const completedText = completed ? renderCompletedText(info.event.mode, info.event.timeISO) : "";
+  const completedMetaHtml = completed
+    ? `<div class="completedMeta">
+         <div class="completedNote">${escapeHtml(completedText)}</div>
+         ${(!readOnly ? `<button class="smallBtn" type="button" data-undo="${r.id}">Undo/Edit</button>` : "")}
+       </div>`
+    : "";
 
   // Row 2 for uncompleted rides: ALWAYS show Standby; add LL/SR if applicable
   let buttonsHtml = "";
@@ -520,20 +526,15 @@ function renderRideRow(r, completedMap, readOnly) {
     `;
   }
 
-  const undoHtml = completed && !readOnly
-    ? `<button class="smallBtn" type="button" data-undo="${r.id}">Undo/Edit</button>`
-    : "";
-
   return `
-    <div class="rideRow ${completed ? "completed" : ""}" role="listitem">
-      <div class="rideMain">
-        ${nameHtml}
-        ${suffixHtml}
-        ${buttonsHtml}
-      </div>
-      <div class="rideActions">${undoHtml}</div>
+  <div class="rideRow ${completed ? "completed" : ""}" role="listitem">
+    <div class="rideMain">
+      ${nameHtml}
+      ${completedMetaHtml}
+      ${buttonsHtml}
     </div>
-  `;
+  </div>
+`;
 }
 
 function renderLineButton(rideId, mode, label, selected, readOnly) {
@@ -551,14 +552,14 @@ function renderLineButton(rideId, mode, label, selected, readOnly) {
   `;
 }
 
-function renderCompletedSuffix(mode, timeISO) {
+function renderCompletedText(mode, timeISO) {
   const label =
     mode === "ll" ? "Lightning Lane" :
     mode === "sr" ? "Single Rider" :
     "Standby Line";
 
   const t = timeISO ? ` at ${formatTime12(new Date(timeISO))}` : "";
-  return `<div class="completedNote">- completed using ${label}${t}</div>`;
+  return `- completed using ${label}${t}`;
 }
 
 function logRide(ride, mode) {
@@ -1039,6 +1040,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
