@@ -99,12 +99,12 @@ body{
 
 .menu{
   position:absolute;
-  width: min(280px, calc(100vw - 16px)) ;
-  max-width: calc(100vw - 16px);
+  width: min(280px, calc(100vw - 32px)) ;
+  max-width: calc(100vw - 32px);
   right: 0;
   left: auto;
   top: 56px;
-  padding: 6px;
+  padding: 2px;
   border-radius: 14px;
   border: 1px solid var(--line);
   background: rgba(16,23,35,.96);
@@ -506,6 +506,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
