@@ -379,7 +379,7 @@ function openSavedChallengesDialog() {
   `;
 
   openDialog({
-    title: "Saved Challenges",
+    title: "Challenges Saved on this Device",
     body: "",
     content: `
       ${tableHtml("Saved", saved.map(ch => rowHtml(ch, "saved")).join(""))}
@@ -1064,6 +1064,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
