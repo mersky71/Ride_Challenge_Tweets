@@ -205,7 +205,7 @@ function setupMoreMenu() {
       confirmText: "End challenge and return to Start",
       confirmClass: "btnDanger",
       onConfirm: () => {
-        if (active) {
+        if (active && active.events && active.events.length > 0) {
           // Save into history as recent (not permanently “Saved” yet)
           archiveChallengeToHistory({ ...active, endedAt: new Date().toISOString() }, { saved: false });
         }
@@ -1039,5 +1039,6 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
