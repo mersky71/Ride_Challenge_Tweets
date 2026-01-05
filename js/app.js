@@ -17,10 +17,14 @@ const PARKS = [
 
 // Park colors (CSS uses --park)
 const PARK_THEME = {
-  mk: { park: "#ff5aa5", park2: "rgba(255,90,165,.18)", parkText: "#0b0f14" },
-  ep: { park: "#7c5cff", park2: "rgba(124,92,255,.18)", parkText: "#0b0f14" },
-  hs: { park: "#ffb14a", park2: "rgba(255,177,74,.18)", parkText: "#0b0f14" },
-  ak: { park: "#52d39a", park2: "rgba(82,211,154,.18)", parkText: "#0b0f14" }
+  // Home/start page theme
+  home: { park: "#7c3aed", park2: "rgba(124,58,237,.12)", parkText: "#0b0f14" }, // Purple
+
+  // Park themes
+  mk: { park: "#22d3ee", park2: "rgba(34,211,238,.12)", parkText: "#0b0f14" }, // Cyan
+  hs: { park: "#ff3ea5", park2: "rgba(255,62,165,.12)", parkText: "#0b0f14" }, // Magenta
+  ep: { park: "#fb923c", park2: "rgba(251,146,60,.12)", parkText: "#0b0f14" }, // Orange
+  ak: { park: "#166534", park2: "rgba(22,101,52,.12)", parkText: "#0b0f14" }  // Forest green
 };
 
 const appEl = document.getElementById("app");
@@ -58,7 +62,7 @@ async function init() {
   if (active && !isActiveChallengeForNow(active)) {
     renderStartPage({ canAccessLast: !!loadLastChallenge() });
     setHeaderEnabled(false);
-    applyParkTheme("mk");
+    applyParkTheme("home");
     return;
   }
 
@@ -71,7 +75,7 @@ async function init() {
   } else {
     renderStartPage({ canAccessLast: !!loadLastChallenge() });
     setHeaderEnabled(false);
-    applyParkTheme("mk");
+    applyParkTheme("home");
   }
 }
 
@@ -116,7 +120,7 @@ function setupMoreMenu() {
         clearActiveChallenge();
         active = null;
         setHeaderEnabled(false);
-        applyParkTheme("mk");
+        applyParkTheme("home");
         renderStartPage({ canAccessLast: !!loadLastChallenge() });
       }
     });
@@ -141,6 +145,62 @@ function setupMoreMenu() {
       showToast("Sorry — could not create the image on this device.");
     }
   });
+    // Settings in More menu
+  const settingsMenuBtn = document.getElementById("settingsMenuBtn");
+  settingsMenuBtn?.addEventListener("click", () => {
+    moreBtn.setAttribute("aria-expanded", "false");
+    moreMenu.setAttribute("aria-hidden", "true");
+
+    if (!active) {
+      showToast("Start a challenge first.");
+      return;
+    }
+
+    const currentTags =
+      (active.tagsText ?? active.settings?.tagsText ?? "").trim();
+    const currentLink =
+      (active.fundraisingLink ?? active.settings?.fundraisingLink ?? "").trim();
+
+    openDialog({
+      title: "Settings",
+      body: "Update these any time (this does not restart your challenge).",
+      content: `
+        <div class="formRow">
+          <div class="label">Tags and hashtags</div>
+          <textarea id="settingsTags" class="textarea" style="min-height:90px;">${escapeHtml(currentTags)}</textarea>
+        </div>
+        <div class="formRow" style="margin-top:10px;">
+          <div class="label">My fundraising link</div>
+          <input id="settingsLink" class="input" value="${escapeHtml(currentLink)}" placeholder="https://..." />
+        </div>
+      `,
+      buttons: [
+        {
+          text: "Save",
+          className: "btn btnPrimary",
+          action: () => {
+            const newTags =
+              (document.getElementById("settingsTags")?.value ?? "").trim();
+            const newLink =
+              (document.getElementById("settingsLink")?.value ?? "").trim();
+
+            // Store in both places so nothing disappears later
+            active.tagsText = newTags;
+            active.fundraisingLink = newLink;
+            active.settings = active.settings || {};
+            active.settings.tagsText = newTags;
+            active.settings.fundraisingLink = newLink;
+
+            saveActiveChallenge(active);
+            closeDialog();
+            showToast("Settings saved.");
+          }
+        },
+        { text: "Cancel", className: "btn", action: () => closeDialog() }
+      ]
+    });
+  });
+
 }
 
 function setHeaderEnabled(enabled) {
@@ -291,7 +351,7 @@ function renderRideRow(r, completedMap, readOnly) {
   const nameHtml = `<p class="rideName">${escapeHtml(r.name)}</p>`;
 
   // Row 2 for completed rides: "- completed using ..."
-  const suffixHtml = completed ? renderCompletedSuffix(info.event.mode) : "";
+  const suffixHtml = completed ? renderCompletedSuffix(info.event.mode, info.event.timeISO) : "";
 
   // Row 2 for uncompleted rides: ALWAYS show Standby; add LL/SR if applicable
   let buttonsHtml = "";
@@ -342,12 +402,14 @@ function renderLineButton(rideId, mode, label, selected, readOnly) {
   `;
 }
 
-function renderCompletedSuffix(mode) {
+function renderCompletedSuffix(mode, timeISO) {
   const label =
     mode === "ll" ? "Lightning Lane" :
     mode === "sr" ? "Single Rider" :
     "Standby Line";
-  return `<div class="completedNote">- completed using ${label}</div>`;
+
+  const t = timeISO ? ` at ${formatTime12(new Date(timeISO))}` : "";
+  return `<div class="completedNote">- completed using ${label}${t}</div>`;
 }
 
 function logRide(ride, mode) {
@@ -793,4 +855,5 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
