@@ -251,8 +251,7 @@ function renderStartPage({ canAccessLast }) {
           This experimental app helps track rides and generate draft tweets for an Every Ride Challenge.
         </p>
         <p class="p" style="margin-top:10px;">
-          It was created by an ordinary person (not a professional software engineer!) with the help of ChatGPT.
-          Please manage expectations accordingly 🙂
+          It was vibe-coded with ChatGPT and may still have bugs, so please manage your expectations accordingly 🙂
         </p>
         <p class="p" style="margin-top:10px;">
           If it breaks down on you, please be prepared to compose your ride tweets manually!
@@ -1050,6 +1049,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
