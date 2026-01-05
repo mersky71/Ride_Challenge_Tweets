@@ -349,7 +349,7 @@ function openSavedChallengesDialog() {
     return `
       <tr>
         <td style="white-space:nowrap;">${escapeHtml(dateLabel)}</td>
-        <td style="text-align:right; white-space:nowrap;">${ridesCount}</td>
+        <td style="text-align:center; white-space:nowrap;">${ridesCount}</td>
         <td style="white-space:nowrap; text-align:right;">
           ${viewBtn}
           ${saveBtn}
@@ -367,7 +367,7 @@ function openSavedChallengesDialog() {
           <thead>
             <tr style="background:#f3f4f6;">
               <th style="text-align:left; padding:10px;">Date</th>
-              <th style="text-align:right; padding:10px;">Rides</th>
+              <th style="text-align:center; padding:10px;">Rides</th>
               <th style="text-align:right; padding:10px;">Actions</th>
             </tr>
           </thead>
@@ -661,11 +661,16 @@ function truncateToWidth(ctx, text, maxWidth) {
 async function renderUpdateImagePng(ch) {
   const events = ch?.events || [];
   const now = new Date();
-  const headerText = `${events.length} rides as of ${formatTime12(now)}`;
+  const dateLabel = formatDayKeyLong(ch?.dayKey);
+  const headerLine1 = dateLabel ? `${dateLabel} challenge run` : `Challenge run`;
+  const headerLine2 = `${events.length} rides as of ${formatTime12(now)}`;
+
+  // Keep returning headerText for share text (use both lines)
+  const headerText = `${headerLine1} — ${headerLine2}`;
 
   const pad = 22;
   const rowH = 34;
-  const headH = 54;
+  const headH = 84;
   const headerRowH = 42;
 
   const colN = 52;
@@ -692,8 +697,14 @@ async function renderUpdateImagePng(ch) {
 
   // header
   ctx.fillStyle = "#111827";
-  ctx.font = "700 30px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText(headerText, pad, pad + 36);
+
+  // Line 1 (date)
+  ctx.font = "700 22px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText(headerLine1, pad, pad + 26);
+
+  // Line 2 (rides as of time)
+  ctx.font = "700 28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText(headerLine2, pad, pad + 60);
 
   // divider
   let y = pad + headH;
@@ -763,6 +774,13 @@ async function renderUpdateImagePng(ch) {
   const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1.0));
   if (!blob) throw new Error("toBlob failed");
   return { blob, headerText };
+}
+
+function formatDayKeyLong(dayKey) {
+  if (!dayKey) return "";
+  // Noon avoids timezone edge cases
+  const d = new Date(`${dayKey}T12:00:00`);
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
 function showUpdateImageDialog({ blob, headerText }) {
@@ -1021,3 +1039,4 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
