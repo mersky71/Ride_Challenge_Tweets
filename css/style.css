@@ -362,7 +362,7 @@ hr.sep{
 .dialog table{
   width: 100%;
   border-collapse: separate;
-  border-spacing: 0 4px; /* vertical space between rows */
+  border-spacing: 0 2px; /* vertical space between rows */
 }
 
 .dialog th,
@@ -384,6 +384,22 @@ hr.sep{
   background: #ffffff;
 }
 
+/* Saved Challenges table headers */
+.dialog thead tr{
+  background: var(--purple);
+}
+
+.dialog thead th{
+  color: #ffffff;
+  font-weight: 600;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+/* Center the Rides column header (matches body) */
+.dialog thead th:nth-child(2){
+  text-align: center;
+}
 
 /* Make header text/buttons readable on bold park color */
 .topbar, .topbar *{
@@ -558,6 +574,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
