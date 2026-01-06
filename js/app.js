@@ -345,8 +345,8 @@ function openSavedChallengesDialog() {
         <td style="white-space:nowrap;">${escapeHtml(dateLabel)}</td>
         <td style="text-align:center; white-space:nowrap;">${ridesCount}</td>
         <td style="white-space:nowrap; text-align:right;">
-          ${viewBtn}
           ${saveBtn}
+          ${viewBtn}
           ${delBtn}
         </td>
       </tr>
@@ -1059,6 +1059,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
