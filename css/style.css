@@ -269,6 +269,10 @@ body{
   font-weight: 650;
   font-size: 12px;
 }
+.smallBtn--spacer{
+  visibility: hidden;
+}
+
 
 .completed{
   opacity: 1; /* keep text readable; gray background does the work */
@@ -571,6 +575,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
