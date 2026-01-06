@@ -362,17 +362,26 @@ hr.sep{
 .dialog table{
   width: 100%;
   border-collapse: separate;
-  border-spacing: 0 8px; /* vertical space between rows */
+  border-spacing: 0 4px; /* vertical space between rows */
 }
 
 .dialog th,
 .dialog td{
-  padding: 8px 10px;    /* touch-friendly tap targets */
+  padding: 4px 6px;    /* touch-friendly tap targets */
   vertical-align: middle;
 }
 
 .dialog td:last-child{
   white-space: nowrap;  /* keep action buttons together */
+}
+
+/* Zebra striping for Saved Challenges tables */
+.dialog tbody tr:nth-child(odd){
+  background: #f3f4f6; /* very light gray */
+}
+
+.dialog tbody tr:nth-child(even){
+  background: #ffffff;
 }
 
 
@@ -549,6 +558,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
