@@ -358,6 +358,23 @@ hr.sep{
 
 }
 
+/* --- Saved Challenges table spacing --- */
+.dialog table{
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 8px; /* vertical space between rows */
+}
+
+.dialog th,
+.dialog td{
+  padding: 8px 10px;    /* touch-friendly tap targets */
+  vertical-align: middle;
+}
+
+.dialog td:last-child{
+  white-space: nowrap;  /* keep action buttons together */
+}
+
 
 /* Make header text/buttons readable on bold park color */
 .topbar, .topbar *{
@@ -532,6 +549,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
