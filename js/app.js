@@ -57,18 +57,26 @@ async function init() {
   rides = rides.filter(r => r.active !== false);
 
   ridesById = new Map(rides.map(r => [r.id, r]));
+  
 
   active = loadActiveChallenge();
 
-  // If there's an active challenge but it's not "today" (cutoff logic handled in storage.js),
-  // show Start page.
   if (active && !isActiveChallengeForNow(active)) {
-    renderStartPage({ canAccessLast: !!loadLastChallenge() });
+    // If yesterday's run wasn't ended manually, move it to Recent automatically
+    if (active?.events?.length > 0) {
+      archiveChallengeToHistory({ ...active, endedAt: new Date().toISOString() }, { saved: false });
+    }
+
+    clearActiveChallenge();
+    active = null;
+
+    renderStartPage();
     setHeaderEnabled(false);
     applyParkTheme("home");
     return;
   }
 
+  
   if (active) {
     setHeaderEnabled(true);
     currentPark = "mk";
@@ -1064,6 +1072,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
