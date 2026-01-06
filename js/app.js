@@ -329,13 +329,15 @@ function openSavedChallengesDialog() {
   const recent = sorted.filter(x => x.saved !== true).slice(0, 20);
 
   const rowHtml = (ch, section) => {
-    const dateLabel = ch.dayKey || (ch.startedAt ? ch.startedAt.slice(0, 10) : "");
+    const dateLabel = formatDayKeyLong(ch.dayKey);
     const ridesCount = (ch.events?.length ?? 0);
 
     const viewBtn = `<button class="smallBtn" type="button" data-hview="${ch.id}">View</button>`;
+    
     const saveBtn = section === "recent"
       ? `<button class="smallBtn" type="button" data-hsave="${ch.id}">Save</button>`
-      : "";
+      : `<button class="smallBtn smallBtn--spacer" type="button" disabled>Save</button>`;
+    
     const delBtn = `<button class="smallBtn" type="button" data-hdel="${ch.id}">Delete</button>`;
 
     return `
@@ -1057,6 +1059,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
