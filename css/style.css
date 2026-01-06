@@ -386,7 +386,7 @@ hr.sep{
 
 /* Saved Challenges table headers */
 .dialog thead tr{
-  background: var(--purple);
+  background: #6d28d9; /* purple-600 */
 }
 
 .dialog thead th{
@@ -574,6 +574,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
