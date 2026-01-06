@@ -3,7 +3,6 @@ import {
   loadActiveChallenge,
   saveActiveChallenge,
   clearActiveChallenge,
-  loadLastChallenge,
   startNewChallenge,
   isActiveChallengeForNow,
   // NEW:
@@ -83,8 +82,9 @@ async function init() {
     parkSelect.value = currentPark;
     applyParkTheme(currentPark);
     renderParkPage({ readOnly: false });
-  } else {
-    renderStartPage({ canAccessLast: !!loadLastChallenge() });
+
+    } else {
+    renderStartPage();
     setHeaderEnabled(false);
     applyParkTheme("home");
   }
@@ -223,7 +223,7 @@ function setupMoreMenu() {
 
         setHeaderEnabled(false);
         applyParkTheme("home");
-        renderStartPage({ canAccessLast: !!loadLastChallenge() });
+        renderStartPage();
       }
     });
   });
@@ -250,7 +250,7 @@ function applyParkTheme(parkId) {
   document.documentElement.style.setProperty("--parkText", t.parkText);
 }
 
-function renderStartPage({ canAccessLast }) {
+function renderStartPage() {
   appEl.innerHTML = `
     <div class="stack startPage">
       <div class="card">
@@ -283,7 +283,6 @@ Help me support @GKTWVillage by donating at the link below</textarea>
         <div class="btnRow" style="margin-top:12px;">
           <button id="startBtn" class="btn btnPrimary" type="button">Start a new challenge</button>
           <button id="viewSavedBtn" class="btn btnPrimary" type="button">View Saved Challenges</button>
-          ${canAccessLast ? `<button id="accessLastBtn" class="btn" type="button">Access most recent challenge</button>` : ""}
         </div>
       </div>
     </div>
@@ -311,20 +310,6 @@ Help me support @GKTWVillage by donating at the link below</textarea>
     openSavedChallengesDialog();
   });
 
-  const accessLastBtn = document.getElementById("accessLastBtn");
-  if (accessLastBtn) {
-    accessLastBtn.addEventListener("click", () => {
-      const last = loadLastChallenge();
-      if (!last) return;
-      active = last;
-      setHeaderEnabled(true);
-      currentPark = "mk";
-      parkSelect.value = currentPark;
-      applyParkTheme(currentPark);
-      renderParkPage({ readOnly: true });
-      showToast("Viewing most recent challenge (read-only).");
-    });
-  }
 }
 
 /* ==========================
@@ -1072,6 +1057,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
