@@ -533,7 +533,32 @@ body.inChallenge #appTitle {
   border: 1px solid #e5e7eb;
   box-shadow: 0 12px 30px rgba(0,0,0,.25);
 }
+/* --- Dialog readability fixes (Settings, Saved Challenges, etc) --- */
+.dialog{
+  color: #111827;
+}
 
+.dialog .dialogBody,
+.dialog .dialogBody *{
+  color: #111827;
+}
+
+.dialog .label{
+  color: #111827; /* was var(--muted) which is too light */
+}
+
+/* Inputs inside dialogs: make fill white + border clearly visible */
+.dialog .textarea,
+.dialog .input{
+  background: #ffffff;
+  color: #111827;
+  border: 1px solid rgba(17, 24, 39, 0.35);  /* visible outline */
+}
+
+.dialog .textarea:focus,
+.dialog .input:focus{
+  border-color: rgba(17, 24, 39, 0.8);
+}
 .dialog h3{
   color: #111827 !important;
 }
@@ -576,6 +601,7 @@ body.inChallenge #appTitle {
 .startPage .btnPrimary{
   color: #ffffff !important;
 }
+
 
 
 
