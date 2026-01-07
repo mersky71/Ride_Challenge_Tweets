@@ -275,7 +275,7 @@ function renderStartPage() {
 Help me support @GKTWVillage by donating at the link below</textarea>
         </div>
 
-        <div class="formRow">
+        <div class="formRow" style="margin-top:12px;">
           <div class="label">My fundraising link (modify as needed)</div>
           <input id="fundLink" class="input" placeholder="https://..." />
         </div>
@@ -1059,6 +1059,7 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
 
 
 
