@@ -25,7 +25,7 @@
   "mediumName": "Magic Carpets of Aladdin",
   "hasLL": true,
   "hasSR": false
- }
+ },
   {"id":"mk_main_street_vehicles","park":"mk","name":"Main Street Vehicles","shortName":"MSV","sortKey":"Main Street Vehicles","ll":false,"sr":false,"active":true},
   {
     "id":"mk_pooh",
@@ -135,4 +135,5 @@
   {"id":"ak_nrj","park":"ak","name":"Na’vi River Journey","shortName":"NRJ","sortKey":"Navi River Journey","ll":true,"sr":false,"active":true},
   {"id":"ak_we_train","park":"ak","name":"Wildlife Express Train","shortName":"WE Train","sortKey":"Wildlife Express Train","ll":false,"sr":false,"active":true}
 ]
+
 
