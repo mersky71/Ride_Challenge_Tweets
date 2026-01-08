@@ -16,6 +16,16 @@
   {"id":"mk_iasw","park":"mk","name":"it’s a small world","shortName":"IASW","sortKey":"its a small world","ll":true,"sr":false,"active":true},
   {"id":"mk_jungle_cruise","park":"mk","name":"Jungle Cruise","shortName":"JC","sortKey":"Jungle Cruise","ll":true,"sr":false,"active":true},
   {"id":"mk_mad_tea_party","park":"mk","name":"Mad Tea Party","shortName":"Teacups","sortKey":"Mad Tea Party","ll":true,"sr":false,"active":true},
+ {
+  "id": "mk_magic_carpets",
+  "park": "mk",
+  "name": "The Magic Carpets of Aladdin",
+  "sortName": "Magic Carpets of Aladdin",
+  "shortName": "Aladdin",
+  "mediumName": "Magic Carpets of Aladdin",
+  "hasLL": true,
+  "hasSR": false
+ }
   {"id":"mk_main_street_vehicles","park":"mk","name":"Main Street Vehicles","shortName":"MSV","sortKey":"Main Street Vehicles","ll":false,"sr":false,"active":true},
   {
     "id":"mk_pooh",
@@ -125,3 +135,4 @@
   {"id":"ak_nrj","park":"ak","name":"Na’vi River Journey","shortName":"NRJ","sortKey":"Navi River Journey","ll":true,"sr":false,"active":true},
   {"id":"ak_we_train","park":"ak","name":"Wildlife Express Train","shortName":"WE Train","sortKey":"Wildlife Express Train","ll":false,"sr":false,"active":true}
 ]
+
