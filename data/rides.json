@@ -31,7 +31,7 @@
     "id":"mk_pooh",
     "park":"mk",
     "name":"The Many Adventures of Winnie the Pooh",
-    "mediumName":"Winnie the Pooh",
+    "mediumName":"Many Adventures of Winnie the Pooh",
     "shortName":"Pooh",
     "sortKey":"Many Adventures of Winnie the Pooh",
     "ll":true,"sr":false,"active":true
@@ -47,8 +47,8 @@
     "id":"mk_peoplemover",
     "park":"mk",
     "name":"Tomorrowland Transit Authority PeopleMover",
-    "mediumName":"PeopleMover",
-    "shortName":"PeopleMover",
+    "mediumName":"TTA PeopleMover",
+    "shortName":"TTA PeopleMover",
     "sortKey":"Tomorrowland Transit Authority PeopleMover",
     "ll":false,"sr":false,"active":true
   },
@@ -135,6 +135,7 @@
   {"id":"ak_nrj","park":"ak","name":"Na’vi River Journey","shortName":"NRJ","sortKey":"Navi River Journey","ll":true,"sr":false,"active":true},
   {"id":"ak_we_train","park":"ak","name":"Wildlife Express Train","shortName":"WE Train","sortKey":"Wildlife Express Train","ll":false,"sr":false,"active":true}
 ]
+
 
 
 
