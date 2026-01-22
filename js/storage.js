@@ -89,6 +89,56 @@ function safeClone(obj) {
   return JSON.parse(JSON.stringify(obj));
 }
 
+
+
+export function getChallengeLastActivityISO(ch) {
+  if (!ch) return null;
+  if (ch.endedAt) return ch.endedAt;
+  const ev = Array.isArray(ch.events) ? ch.events : [];
+  if (ev.length > 0) {
+    const last = ev[ev.length - 1];
+    if (last && last.timeISO) return last.timeISO;
+  }
+  return ch.startedAt || null;
+}
+
+export function hoursSinceISO(isoString) {
+  if (!isoString) return Infinity;
+  const t = Date.parse(isoString);
+  if (!Number.isFinite(t)) return Infinity;
+  const diffMs = Date.now() - t;
+  return diffMs / (1000 * 60 * 60);
+}
+
+export function getMostRecentHistoryChallenge() {
+  const hist = loadChallengeHistory();
+  if (!hist.length) return null;
+
+  // History is stored newest-first, but we compute explicitly in case older data isn't sorted.
+  let best = null;
+  let bestT = -Infinity;
+  for (const h of hist) {
+    const iso = getChallengeLastActivityISO(h);
+    const t = Date.parse(iso || "") || 0;
+    if (t > bestT) {
+      bestT = t;
+      best = h;
+    }
+  }
+  return best;
+}
+
+export function popMostRecentHistoryChallenge() {
+  const hist = loadChallengeHistory();
+  if (!hist.length) return null;
+
+  const best = getMostRecentHistoryChallenge();
+  if (!best || !best.id) return null;
+
+  const next = hist.filter(h => h && h.id !== best.id);
+  saveChallengeHistory(normalizeHistory(next));
+  return best;
+}
 export function loadChallengeHistory() {
   try {
     const raw = localStorage.getItem(KEY_HISTORY);
@@ -123,8 +173,8 @@ function normalizeHistory(history) {
   return [...saved, ...trimmedRecent]
     // And then sort overall newest-first for storage convenience
     .sort((a, b) => {
-      const ta = Date.parse(a.endedAt || a.startedAt || "") || 0;
-      const tb = Date.parse(b.endedAt || b.startedAt || "") || 0;
+      const ta = Date.parse(getChallengeLastActivityISO(a) || "") || 0;
+      const tb = Date.parse(getChallengeLastActivityISO(b) || "") || 0;
       return tb - ta;
     });
 }
