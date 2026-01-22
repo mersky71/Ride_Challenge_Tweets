@@ -9,8 +9,14 @@ import {
   archiveChallengeToHistory,
   loadChallengeHistory,
   setChallengeSaved,
-  deleteChallengeFromHistory
+  deleteChallengeFromHistory,
+  getMostRecentHistoryChallenge,
+  popMostRecentHistoryChallenge,
+  getChallengeLastActivityISO,
+  hoursSinceISO
 } from "./storage.js";
+
+const RESUME_WINDOW_HOURS = 36;
 
 const PARKS = [
   { id: "mk", name: "Magic Kingdom" },
@@ -370,7 +376,66 @@ function applyParkTheme(parkId) {
   document.documentElement.style.setProperty("--parkText", t.parkText);
 }
 
+
+
+function getResumeCandidate() {
+  const mostRecent = getMostRecentHistoryChallenge();
+  if (!mostRecent) return null;
+
+  const lastISO = getChallengeLastActivityISO(mostRecent);
+  const hoursAgo = hoursSinceISO(lastISO);
+
+  if (!(hoursAgo <= RESUME_WINDOW_HOURS)) return null;
+
+  const ridesCount = Array.isArray(mostRecent.events) ? mostRecent.events.length : 0;
+  if (ridesCount <= 0) return null;
+
+  const lastDate = lastISO ? new Date(lastISO) : null;
+  const lastActivityLabel = lastDate ? `${formatDateShort(lastDate)} at ${formatTime(lastDate)}` : "Unknown";
+
+  return { challenge: mostRecent, lastISO, hoursAgo, ridesCount, lastActivityLabel };
+}
+
+function handleResumeMostRecent() {
+  const ch = popMostRecentHistoryChallenge();
+  if (!ch) {
+    showToast("No recent run available to resume.");
+    return;
+  }
+
+  // Re-open: clear “ended” / “saved” markers so it behaves like an active run.
+  delete ch.endedAt;
+  delete ch.saved;
+  delete ch.savedAt;
+
+  // Ensure required fields exist
+  ch.events = Array.isArray(ch.events) ? ch.events : [];
+  ch.settings = ch.settings || {};
+
+  active = ch;
+  saveActiveChallenge(active);
+
+  // Jump straight into the park UI (no refresh needed)
+  setHeaderEnabled(true);
+  currentPark = "mk";
+  parkSelect.value = currentPark;
+  applyParkTheme(currentPark);
+  renderParkPage({ readOnly: false });
+}
 function renderStartPage() {
+  const resumeCandidate = getResumeCandidate();
+  const resumeCardHtml = resumeCandidate ? `
+      <div class="card">
+        <div class="h1">Resume most recent run</div>
+        <p class="p" style="margin-top:6px;">
+          Last activity: ${escapeHtml(resumeCandidate.lastActivityLabel)} · ${resumeCandidate.ridesCount} ride${resumeCandidate.ridesCount === 1 ? "" : "s"}
+        </p>
+        <div class="btnRow" style="margin-top:12px;">
+          <button id="resumeMostRecentBtn" class="btn btnPrimary" type="button">Resume</button>
+        </div>
+      </div>
+  ` : "";
+
   appEl.innerHTML = `
     <div class="stack startPage">
       <div class="card">
@@ -382,6 +447,8 @@ function renderStartPage() {
           There may be bugs -- if it breaks down, please be prepared to compose ride tweets manually!
         </p>
       </div>
+
+      ${resumeCardHtml}
 
       <div class="card">
         <div class="h1">Start a new challenge</div>
@@ -429,6 +496,24 @@ Help me support @GKTWVillage by donating at the link below</textarea>
       persistMode: "draft"
     });
   });
+
+  // Resume most recent run (from Saved or Recent history)
+  document.getElementById("resumeMostRecentBtn")?.addEventListener("click", () => {
+    const candidate = getResumeCandidate();
+    if (!candidate) return;
+
+    openConfirmDialog({
+      title: "Resume most recent run?",
+      body:
+        `Last activity: ${candidate.lastActivityLabel}\n` +
+        `${candidate.ridesCount} ride${candidate.ridesCount === 1 ? "" : "s"} logged\n\n` +
+        "Resuming will remove this run from Previous challenges and continue it.",
+      confirmText: "Resume run",
+      confirmClass: "",
+      onConfirm: () => handleResumeMostRecent()
+    });
+  });
+
 
   document.getElementById("startBtn")?.addEventListener("click", () => {
     const tagsText = document.getElementById("tagsText").value ?? "";
@@ -1486,6 +1571,14 @@ function showToast(msg) {
   setTimeout(() => el.remove(), 2200);
 }
 
+
+function formatDateShort(d) {
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const m = months[d.getMonth()];
+  const day = d.getDate();
+  return `${m} ${day}`;
+}
+
 function formatTime(d) {
   let h = d.getHours();
   const m = String(d.getMinutes()).padStart(2, "0");
@@ -1503,8 +1596,3 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
-
-
-
-
