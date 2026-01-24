@@ -1595,7 +1595,7 @@ function openUndoEditDialog(ride, eventInfo) {
   if (hasAlt) {
     buttons.push({
       text: "Edit line used",
-      className: "btn",
+      className: "btn btnPrimary",
       action: () => {
         closeDialog();          // close Undo/Edit popup
         openLineEditDialog(ride, eventInfo); // opens the edit dialog
@@ -1698,3 +1698,4 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
