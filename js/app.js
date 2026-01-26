@@ -1,4 +1,3 @@
-
 // app.js
 import {
   loadActiveChallenge,
@@ -1241,26 +1240,25 @@ async function renderUpdateImagePng(ch) {
   const events = (ch?.events || []).slice();
   const lastEvent = events.length ? events[events.length - 1] : null;
 
+
   const asOfDate = lastEvent?.timeISO ? new Date(lastEvent.timeISO) : new Date();
 
-  // Header line 1: challenge start date (prefer dayKey)
+  // Start date label (challenge started)
   const startDateLabel = ch?.dayKey
     ? formatDayKeyLong(ch.dayKey)
     : (ch?.startedAt ? formatDateResortLong(new Date(ch.startedAt)) : formatDateResortLong(asOfDate));
 
-  const headerLine1 = startDateLabel;
-
-  // Header line 2: X rides as of TIME [+ DATE only if different day]
   const asOfTimeStr = formatTimeResort(asOfDate);
   const asOfDateStr = formatDateResortLong(asOfDate);
 
-  const headerLine2 =
+  // Single combined header line (no second dot before the as-of date)
+  const headerLine =
     asOfDateStr === startDateLabel
-      ? `${events.length} rides as of ${asOfTimeStr}`
-      : `${events.length} rides as of ${asOfTimeStr} · ${asOfDateStr}`;
+      ? `${startDateLabel} · ${events.length} rides as of ${asOfTimeStr}`
+      : `${startDateLabel} · ${events.length} rides as of ${asOfTimeStr} ${asOfDateStr}`;
 
-  const headerText = `${headerLine1}\n${headerLine2}`;
-
+  const headerText = headerLine;
+  
   // Count date separator rows (inserted before first ride of a new day in resort TZ)
   let extraDateRows = 0;
   let prevKey = null;
@@ -1275,7 +1273,7 @@ async function renderUpdateImagePng(ch) {
   // Layout constants (keep your existing values if they differ)
   const W = 880;
   const pad = 24;
-  const headH = 72;
+  const headH = 48;
   const headerRowH = 34;
   const rowH = 34;
 
@@ -1298,17 +1296,14 @@ async function renderUpdateImagePng(ch) {
   // Header
   ctx.fillStyle = "#111827";
   ctx.font = "800 28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText(headerLine1, pad, pad + 32);
-
-  ctx.font = "600 18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText(headerLine2, pad, pad + 58);
-
+  ctx.fillText(headerLine, pad, pad + 36);
+  
   // Table header row
   let y = pad + headH;
   const tableW = W - pad * 2;
 
   ctx.fillStyle = "#111827";
-  ctx.font = "700 16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.font = "700 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
   ctx.fillText("#", pad + 8, y + 24);
   ctx.fillText(`Time (${RESORT_TIME_ABBREV})`, pad + colN + 8, y + 24);
   ctx.fillText("Ride", pad + colN + colTime + 8, y + 24);
@@ -1346,7 +1341,7 @@ async function renderUpdateImagePng(ch) {
       ctx.stroke();
 
       ctx.fillStyle = "#111827";
-      ctx.font = "700 16px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+      ctx.font = "700 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
       ctx.textAlign = "center";
       ctx.fillText(formatDateResortLong(eventDate), pad + tableW / 2, rowTop + 23);
       ctx.textAlign = "start";
@@ -1373,7 +1368,7 @@ async function renderUpdateImagePng(ch) {
 
     // Text
     ctx.fillStyle = "#111827";
-    ctx.font = "500 18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+    ctx.font = "500 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
 
     const ty = rowTop + 23;
     const timeStr = e.timeISO ? formatTimeResort(new Date(e.timeISO)) : "";
@@ -1595,7 +1590,7 @@ function openUndoEditDialog(ride, eventInfo) {
   if (hasAlt) {
     buttons.push({
       text: "Edit line used",
-      className: "btn btnPrimary",
+      className: "btn",
       action: () => {
         closeDialog();          // close Undo/Edit popup
         openLineEditDialog(ride, eventInfo); // opens the edit dialog
@@ -1698,4 +1693,3 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
