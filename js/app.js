@@ -1273,7 +1273,7 @@ async function renderUpdateImagePng(ch) {
   // Layout constants (keep your existing values if they differ)
   const W = 880;
   const pad = 24;
-  const headH = 48;
+  const headH = 60;
   const headerRowH = 34;
   const rowH = 34;
 
@@ -1693,3 +1693,4 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
