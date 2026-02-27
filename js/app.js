@@ -9,70 +9,67 @@ import {
   archiveChallengeToHistory,
   loadChallengeHistory,
   setChallengeSaved,
-  deleteChallengeFromHistory,
-  getMostRecentHistoryChallenge,
-  popMostRecentHistoryChallenge,
-  getChallengeLastActivityISO,
-  hoursSinceISO
+  deleteChallengeFromHistory
 } from "./storage.js";
 
-const RESUME_WINDOW_HOURS = 36;
+const RESORTS = {
+  wdw: {
+    id: "wdw",
+    name: "Walt Disney World",
+    parks: [
+      { id: "mk", name: "Magic Kingdom" },
+      { id: "ep", name: "EPCOT" },
+      { id: "hs", name: "Hollywood Studios" },
+      { id: "ak", name: "Animal Kingdom" }
+    ],
+    startDefaults: {
+      tagsText: `#EveryRideWDW @RideEvery
 
-const PARKS = [
-  { id: "mk", name: "Magic Kingdom" },
-  { id: "ep", name: "EPCOT" },
-  { id: "hs", name: "Hollywood Studios" },
-  { id: "ak", name: "Animal Kingdom" }
-];
+Help me support @GKTWVillage by donating at the link below`
+    }
+  },
+  dlr: {
+    id: "dlr",
+    name: "Disneyland Resort",
+    parks: [
+      { id: "dl", name: "Disneyland Park" },
+      { id: "dca", name: "California Adventure" }
+    ],
+    startDefaults: {
+      tagsText: `#EveryRideDLR @RideEvery
+
+Help me support @GKTWVillage by donating at the link below`
+    }
+  }
+};
+
+function getResort(resortId) {
+  return RESORTS[resortId] || RESORTS.wdw;
+}
+
+function getParksForResort(resortId) {
+  return getResort(resortId).parks;
+}
 
 // Park colors (CSS uses --park)
 const PARK_THEME = {
-  // Home/start page theme
+  // Home/start page theme (main landing page)
   home: { park: "#7c3aed", park2: "rgba(124,58,237,.12)", parkText: "#0b0f14" }, // Purple
+
+  // Resort landing page themes
+  wdwHome: { park: "#4E7FA8", park2: "rgba(78,127,168,.22)", parkText: "#0b0f14" }, // Slate blue
+  dlrHome: { park: "#C98A9A", park2: "rgba(201,138,154,.22)", parkText: "#0b0f14" }, // Muted pink
 
   // Park themes
   mk: { park: "#22d3ee", park2: "rgba(34,211,238,.26)", parkText: "#0b0f14" }, // Cyan
   hs: { park: "#ff3ea5", park2: "rgba(255,62,165,.26)", parkText: "#0b0f14" }, // Magenta
   ep: { park: "#fb923c", park2: "rgba(251,146,60,.26)", parkText: "#0b0f14" }, // Orange
-  ak: { park: "#166534", park2: "rgba(22,101,52,.26)", parkText: "#0b0f14" }  // Forest green
+  ak: { park: "#166534", park2: "rgba(22,101,52,.26)", parkText: "#0b0f14" },  // Forest green
+
+  // Disneyland Resort park themes
+  dl: { park: "#ef4444", park2: "rgba(239,68,68,.22)", parkText: "#0b0f14" },   // Red
+  dca: { park: "#2563eb", park2: "rgba(37,99,235,.22)", parkText: "#0b0f14" }  // Blue
 };
-
-
-// --- Share Update image: render times in resort timezone (DST-aware) ---
-// WDW = Eastern. If you later make Disneyland: set to "America/Los_Angeles" and "PT".
-const RESORT_TIMEZONE = "America/New_York";
-const RESORT_TIME_ABBREV = "ET";
-
-function formatTimeResort(d) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: RESORT_TIMEZONE,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true
-  }).format(d);
-}
-
-function formatDateResortLong(d) {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: RESORT_TIMEZONE,
-    month: "short",
-    day: "numeric",
-    year: "numeric"
-  }).format(d);
-}
-
-function dateKeyResort(d) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: RESORT_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).formatToParts(d);
-
-  const get = (type) => parts.find(p => p.type === type)?.value;
-  return `${get("year")}-${get("month")}-${get("day")}`; // YYYY-MM-DD
-}
-
 
 
 
@@ -86,17 +83,23 @@ const moreMenu = document.getElementById("moreMenu");
 const endToStartBtn = document.getElementById("endToStartBtn");
 const appTitle = document.getElementById("appTitle");
 
-let rides = [];
-let ridesById = new Map();
+let allRides = [];
+let rides = []; // active rides for current resort (active !== false)
+let ridesById = new Map(); // ALL rides by id (includes inactive + all resorts)
 let active = null;
+let currentResort = null;
 let currentPark = "mk";
 
 // Draft excluded rides (chosen on Start page before a run begins)
-const KEY_EXCLUDED_DRAFT = "erw_excludedDraft_v1";
+// Stored per resort so DLR/WDW drafts don't collide (even if users rarely switch).
+function excludedDraftKey(resortId) {
+  const rid = resortId || "wdw";
+  return `erw_excludedDraft_${rid}_v1`;
+}
 
-function loadExcludedDraftIds() {
+function loadExcludedDraftIds(resortId = currentResort) {
   try {
-    const raw = localStorage.getItem(KEY_EXCLUDED_DRAFT);
+    const raw = localStorage.getItem(excludedDraftKey(resortId));
     const arr = raw ? JSON.parse(raw) : [];
     return Array.isArray(arr) ? arr : [];
   } catch {
@@ -104,25 +107,22 @@ function loadExcludedDraftIds() {
   }
 }
 
-function saveExcludedDraftIds(ids) {
-  localStorage.setItem(KEY_EXCLUDED_DRAFT, JSON.stringify(ids));
+function saveExcludedDraftIds(ids, resortId = currentResort) {
+  localStorage.setItem(excludedDraftKey(resortId), JSON.stringify(ids));
 }
 
-function clearExcludedDraftIds() {
-  localStorage.removeItem(KEY_EXCLUDED_DRAFT);
+function clearExcludedDraftIds(resortId = currentResort) {
+  localStorage.removeItem(excludedDraftKey(resortId));
 }
 
 init();
 
 async function init() {
-  setupParksDropdown();
   setupMoreMenu();
   setupAutoScrollToTopOnReturnIfParkComplete();
 
-  const allRides = await fetch("./data/rides.json").then(r => r.json());
-  // 'rides' drives the live UI (active attractions only)
-  rides = allRides.filter(r => r.active !== false);
-  // 'ridesById' must include inactive rides so historic runs (and images) still render correctly
+  allRides = await fetch("./data/rides.json").then(r => r.json());
+  // Map includes ALL rides (inactive + all resorts) so historical runs still render correctly
   ridesById = new Map(allRides.map(r => [r.id, r]));
 
   active = loadActiveChallenge();
@@ -130,44 +130,98 @@ async function init() {
   if (active && !isActiveChallengeForNow(active)) {
     // If yesterday's run wasn't ended manually, move it to Recent automatically
     if (active?.events?.length > 0) {
-      archiveChallengeToHistory({ ...active, endedAt: new Date().toISOString() }, { saved: false });
+      const resortId = active.resortId || "wdw";
+      archiveChallengeToHistory({ ...active, resortId, endedAt: new Date().toISOString() }, { saved: false });
     }
 
     clearActiveChallenge();
     active = null;
-
-    renderStartPage();
-    setHeaderEnabled(false);
-    applyParkTheme("home");
-    return;
   }
 
   if (active) {
+    currentResort = active.resortId || "wdw";
+    // Back-compat: persist resortId on older stored challenges
+    if (!active.resortId) {
+      active.resortId = currentResort;
+      saveActiveChallenge(active);
+    }
+
+    setRidesForResort(currentResort);
+    setupParksDropdown();
+
     setHeaderEnabled(true);
-    currentPark = "mk";
+    currentPark = getParksForResort(currentResort)[0]?.id || "mk";
     parkSelect.value = currentPark;
     applyParkTheme(currentPark);
     renderParkPage({ readOnly: false });
   } else {
-    renderStartPage();
+    renderResortSelectPage();
     setHeaderEnabled(false);
     applyParkTheme("home");
   }
 }
 
+function setRidesForResort(resortId) {
+  currentResort = resortId || "wdw";
+  rides = allRides.filter(r => (r.resort || "wdw") === currentResort && r.active !== false);
+}
+
+function renderResortSelectPage() {
+  applyParkTheme("home");
+  setHeaderEnabled(false);
+  appEl.innerHTML = `
+    <div class="stack startPage">
+      <div class="card">
+        <div class="h1">Welcome</div>
+        <p class="p">
+          This app may help you track your challenge run and generate draft tweets for you.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="h1">Choose your resort</div>
+        <p class="p">Select the resort for your challenge today.</p>
+        <div class="btnRow" style="margin-top:12px; gap:10px; flex-wrap:wrap;">
+          <button id="chooseWDW" class="btn btnPrimary" type="button">Walt Disney World</button>
+          <button id="chooseDLR" class="btn btnPrimary" type="button">Disneyland Resort</button>
+        </div>
+      </div>
+
+<div class="card">
+        <div class="h1">Notes</div>
+        <p class="p">
+          For some users with older iPhones, this app did not work because the phone wouldn't store the ride data. Have a backup plan in case this happens to you!
+        </p>
+      </div>    
+    
+    </div>
+  `;
+
+  document.getElementById("chooseWDW")?.addEventListener("click", () => {
+    navigateToResort("wdw");
+  });
+
+  document.getElementById("chooseDLR")?.addEventListener("click", () => {
+    navigateToResort("dlr");
+  });
+}
+
 function setupParksDropdown() {
   parkSelect.innerHTML = "";
-  for (const p of PARKS) {
+
+  const parks = getParksForResort(currentResort || "wdw");
+  for (const p of parks) {
     const opt = document.createElement("option");
     opt.value = p.id;
     opt.textContent = p.name;
     parkSelect.appendChild(opt);
   }
-  parkSelect.addEventListener("change", () => {
+
+  parkSelect.onchange = () => {
     currentPark = parkSelect.value;
     applyParkTheme(currentPark);
     if (active) renderParkPage({ readOnly: false });
-  });
+  };
 }
 
 function getExcludedSetForActive() {
@@ -326,7 +380,7 @@ function setupMoreMenu() {
       onConfirm: () => {
         if (active && active.events && active.events.length > 0) {
           // Save into history as recent (not permanently “Saved” yet)
-          archiveChallengeToHistory({ ...active, endedAt: new Date().toISOString() }, { saved: false });
+          archiveChallengeToHistory({ ...active, resortId: active.resortId || currentResort || "wdw", endedAt: new Date().toISOString() }, { saved: false });
         }
 
         clearActiveChallenge();
@@ -409,6 +463,119 @@ function setHeaderEnabled(enabled) {
   moreBtn.disabled = !enabled;
 }
 
+/* ==========================
+   Navigation (SPA history)
+   ========================== */
+
+function navigateToHome(replace = false) {
+  if (replace) {
+    history.replaceState({ page: "home" }, "");
+  } else {
+    history.pushState({ page: "home" }, "");
+  }
+  currentResort = null;
+  active = null;
+  renderResortSelectPage();
+}
+
+function navigateToResort(resortId, replace = false) {
+  const st = { page: "resort", resortId };
+  if (replace) {
+    history.replaceState(st, "");
+  } else {
+    history.pushState(st, "");
+  }
+  setRidesForResort(resortId);
+  setupParksDropdown();
+  renderStartPage(resortId);
+}
+
+// Handle browser back/forward
+window.addEventListener("popstate", (e) => {
+  const st = e.state;
+  if (!st || st.page === "home") {
+    renderResortSelectPage();
+    return;
+  }
+  if (st.page === "resort") {
+    navigateToResort(st.resortId || "wdw", true);
+    return;
+  }
+});
+
+/* ==========================
+   Resume helpers
+   ========================== */
+
+function getMostRecentHistoryEntryForResort(resortId) {
+  const hist = loadChallengeHistory().filter(x => (x.resortId || "wdw") === resortId);
+  if (!hist.length) return null;
+  return hist.reduce((best, cur) => {
+    const tb = Date.parse(best.endedAt || best.startedAt || "") || 0;
+    const tc = Date.parse(cur.endedAt || cur.startedAt || "") || 0;
+    return tc > tb ? cur : best;
+  }, hist[0]);
+}
+
+function isWithinHours(historyEntry, hours) {
+  const t = Date.parse(historyEntry.endedAt || historyEntry.startedAt || "") || 0;
+  if (!t) return false;
+  const ms = hours * 60 * 60 * 1000;
+  return (Date.now() - t) <= ms;
+}
+
+// Match storage.js 3am cutoff behavior
+function computeDayKeyNow() {
+  const now = new Date();
+  const cutoffHour = 3;
+  const d = new Date(now);
+  if (d.getHours() < cutoffHour) {
+    d.setDate(d.getDate() - 1);
+  }
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function resumeHistoryChallenge(historyEntry) {
+  // Clone history into an active challenge
+  const resumed = JSON.parse(JSON.stringify(historyEntry || {}));
+  resumed.saved = false;
+  delete resumed.endedAt;
+
+  resumed.dayKey = computeDayKeyNow();
+  resumed.resortId = resumed.resortId || currentResort || "wdw";
+
+  // Ensure settings exist
+  resumed.settings = resumed.settings || {};
+  resumed.tagsText = resumed.tagsText || resumed.settings.tagsText || "";
+  resumed.fundraisingLink = resumed.fundraisingLink || resumed.settings.fundraisingLink || "";
+
+  // Persist as active
+  active = resumed;
+  saveActiveChallenge(active);
+
+  // Choose a sensible park (park of last event, else first park)
+  let parkId = (getParksForResort(resumed.resortId)[0]?.id) || "mk";
+  if (Array.isArray(resumed.events) && resumed.events.length) {
+    const last = resumed.events[resumed.events.length - 1];
+    const ride = ridesById.get(last.rideId);
+    if (ride?.park) parkId = ride.park;
+  }
+
+  setHeaderEnabled(true);
+  currentResort = resumed.resortId;
+  setupParksDropdown();
+
+  currentPark = parkId;
+  parkSelect.value = parkId;
+  applyParkTheme(currentPark);
+
+  renderParkPage({ readOnly: false });
+  
+  }
+
 function applyParkTheme(parkId) {
   const t = PARK_THEME[parkId] || PARK_THEME.mk;
   document.documentElement.style.setProperty("--park", t.park);
@@ -416,93 +583,37 @@ function applyParkTheme(parkId) {
   document.documentElement.style.setProperty("--parkText", t.parkText);
 }
 
-function getResumeCandidate() {
-  const mostRecent = getMostRecentHistoryChallenge();
-  if (!mostRecent) return null;
-
-  const events = Array.isArray(mostRecent.events) ? mostRecent.events : [];
-  const ridesCount = events.length;
-  if (ridesCount <= 0) return null;
-
-  // Use the most recent *ride* timestamp (not “activity” timestamps like savedAt/endedAt/etc.)
-  let lastRideISO = null;
-  for (let i = events.length - 1; i >= 0; i--) {
-    const iso = events[i]?.timeISO;
-    if (iso) { lastRideISO = iso; break; }
-  }
-  if (!lastRideISO) return null;
-
-  const hoursAgo = hoursSinceISO(lastRideISO);
-  if (!(hoursAgo <= RESUME_WINDOW_HOURS)) return null;
-
-  const lastRideDate = new Date(lastRideISO);
-  const lastRideLabel = `${formatDateShort(lastRideDate)} at ${formatTime(lastRideDate)}`;
-
-  return { challenge: mostRecent, lastRideISO, hoursAgo, ridesCount, lastRideLabel };
-}
-
-function handleResumeMostRecent() {
-  const ch = popMostRecentHistoryChallenge();
-  if (!ch) {
-    showToast("No recent run available to resume.");
-    return;
-  }
-
-  // Re-open: clear “ended” / “saved” markers so it behaves like an active run.
-  delete ch.endedAt;
-  delete ch.saved;
-  delete ch.savedAt;
-
-  // Ensure required fields exist
-  ch.events = Array.isArray(ch.events) ? ch.events : [];
-  ch.settings = ch.settings || {};
-
-  active = ch;
-  saveActiveChallenge(active);
-
-  // Jump straight into the park UI (no refresh needed)
-  setHeaderEnabled(true);
-  currentPark = "mk";
-  parkSelect.value = currentPark;
-  applyParkTheme(currentPark);
-  renderParkPage({ readOnly: false });
-}
-function renderStartPage() {
-  const resumeCandidate = getResumeCandidate();
-  const resumeCardHtml = resumeCandidate ? `
-      <div class="card">
-        <div class="h1">Resume most recent run</div>
-        <p class="p" style="margin-top:6px;">
-          Last ride: ${escapeHtml(resumeCandidate.lastRideLabel)} • ${resumeCandidate.ridesCount} ride${resumeCandidate.ridesCount === 1 ? "" : "s"}
-        </p>
-        <div class="btnRow" style="margin-top:12px;">
-          <button id="resumeMostRecentBtn" class="btn btnPrimary" type="button">Resume</button>
-        </div>
-      </div>
-  ` : "";
+function renderStartPage(resortId = currentResort || "wdw") {
+  setRidesForResort(resortId);
+  applyParkTheme(resortId === "dlr" ? "dlrHome" : "wdwHome");
+  setHeaderEnabled(false);
+  const resort = getResort(resortId);
+  const defaultTags = resort.startDefaults?.tagsText || "";
+  const defaultPark = getParksForResort(resortId)[0]?.id || "mk";
 
   appEl.innerHTML = `
     <div class="stack startPage">
       <div class="card">
-        <div class="h1">Welcome</div>
+        <div class="h1">Every Ride ${resortId.toUpperCase()} Challenge</div>
         <p class="p">
-          This experimental app helps track rides and generate draft tweets for an Every Ride Challenge.
+          This app may help you track your ${resortId.toUpperCase()} challenge run and generate draft tweets for you.
         </p>
         <p class="p" style="margin-top:10px;">
-          There may be bugs -- if it breaks down, please be prepared to compose ride tweets manually!
+          Modify tags and hashtags and add a link to your fundraising page below.
         </p>
+        <div class="btnRow" style="margin-top:12px; gap:10px;">
+          <button id="backToResortsBtn" class="btn btnPrimary" type="button">Back to resort selector</button>
+        </div>
       </div>
 
-      ${resumeCardHtml}
+      <div id="resumeCardHost"></div>
 
       <div class="card">
         <div class="h1">Start a new challenge</div>
 
         <div class="formRow">
           <div class="label">Tags and hashtags (modify as needed)</div>
-          <textarea id="tagsText" class="textarea" style="min-height:80px;">#EveryRideWDW @RideEvery
-  
-Help me support @GKTWVillage by donating at the link below</textarea>
+          <textarea id="tagsText" class="textarea" style="min-height:80px;">${escapeHtml(defaultTags)}</textarea>
         </div>
 
         <div class="formRow" style="margin-top:12px;">
@@ -514,17 +625,51 @@ Help me support @GKTWVillage by donating at the link below</textarea>
           <div class="h1" style="font-size:16px;">Exclude rides (refurb / custom challenge)</div>
            <p class="p" style="margin-top:6px;"> Click to exclude rides that are not operating today, or to create a custom challenge. </p>
           <div class="btnRow" style="margin-top:10px;">
-            <button id="excludedRidesBtn" class="btn btnPrimary" type="button">Rides excluded: 0 of 0</button>
+            <button id="excludedRidesBtn" class="btn btnInverse" type="button">Rides excluded: 0 of 0</button>
           </div>
         </div>
 
         <div class="btnRow" style="margin-top:12px;">
           <button id="startBtn" class="btn btnPrimary" type="button">Start new challenge</button>
-          <button id="viewSavedBtn" class="btn btnPrimary" type="button">Previous challenges</button>
+          <button id="viewSavedBtn" class="btn btnInverse" type="button">Previous challenges</button>
         </div>
-      </div>
-    </div>
-  `;
+          </div>
+        </div>
+      `;
+  
+  // Back to resort selection
+  document.getElementById("backToResortsBtn")?.addEventListener("click", () => {
+    navigateToHome();
+  });
+
+  // Resume most recent challenge (within last 36 hours) for this resort
+  const resumeHost = document.getElementById("resumeCardHost");
+  if (resumeHost) {
+    const mostRecent = getMostRecentHistoryEntryForResort(resortId);
+    const isRecent = mostRecent && isWithinHours(mostRecent, 36);
+    if (isRecent) {
+      const when = Date.parse(mostRecent.endedAt || mostRecent.startedAt || "") || 0;
+      const ridesLogged = Array.isArray(mostRecent.events) ? mostRecent.events.length : 0;
+
+      resumeHost.innerHTML = `
+        <div class="card">
+          <div class="h1">Resume</div>
+          <p class="p">Most recent ${resortId.toUpperCase()} challenge (${ridesLogged} rides logged).</p>
+          <div class="btnRow" style="margin-top:12px;">
+            <button id="resumeBtn" class="btn btnPrimary" type="button">Resume most recent challenge</button>
+          </div>
+        </div>
+      `;
+
+      
+      document.getElementById("resumeBtn")?.addEventListener("click", () => {
+        resumeHistoryChallenge(mostRecent);
+      });
+    } else {
+      resumeHost.innerHTML = "";
+    }
+  }
+
 
   // Update excluded counts on Start page
   const draftExcluded = new Set(loadExcludedDraftIds());
@@ -537,34 +682,18 @@ Help me support @GKTWVillage by donating at the link below</textarea>
   document.getElementById("excludedRidesBtn")?.addEventListener("click", () => {
     openExcludedRidesDialog({
       excludedIds: new Set(loadExcludedDraftIds()),
-      parkFilter: new Set(["mk"]),
+      parkFilter: new Set([defaultPark]),
       persistMode: "draft"
     });
   });
-
-  // Resume most recent run (from Saved or Recent history)
-  document.getElementById("resumeMostRecentBtn")?.addEventListener("click", () => {
-    const candidate = getResumeCandidate();
-    if (!candidate) return;
-
-    openConfirmDialog({
-      title: "Resume most recent run?",
-      body:
-        `Last ride: ${candidate.lastRideLabel}\n` +
-        `${candidate.ridesCount} ride${candidate.ridesCount === 1 ? "" : "s"} logged\n\n` +
-        "Resuming will remove this run from Previous challenges and continue it.",
-      confirmText: "Resume run",
-      confirmClass: "",
-      onConfirm: () => handleResumeMostRecent()
-    });
-  });
-
 
   document.getElementById("startBtn")?.addEventListener("click", () => {
     const tagsText = document.getElementById("tagsText").value ?? "";
     const fundraisingLink = document.getElementById("fundLink").value ?? "";
 
     active = startNewChallenge({ tagsText, fundraisingLink });
+
+    active.resortId = currentResort || resortId || "wdw";
 
     // Copy “excluded rides” draft into the new active challenge
     const excludedIds = loadExcludedDraftIds();
@@ -581,7 +710,7 @@ Help me support @GKTWVillage by donating at the link below</textarea>
     saveActiveChallenge(active);
 
     setHeaderEnabled(true);
-    currentPark = "mk";
+    currentPark = defaultPark;
     parkSelect.value = currentPark;
     applyParkTheme(currentPark);
     renderParkPage({ readOnly: false });
@@ -593,7 +722,10 @@ Help me support @GKTWVillage by donating at the link below</textarea>
 }
 
 function openExcludedRidesDialog({ excludedIds, parkFilter, persistMode = "draft" }) {
-  if (!parkFilter || parkFilter.size === 0) parkFilter = new Set(["mk"]);
+  if (!parkFilter || parkFilter.size === 0) {
+    const first = getParksForResort(currentResort || "wdw")[0]?.id || "mk";
+    parkFilter = new Set([first]);
+  }
 
   const sortBySortKey = (a, b) =>
     (a.sortKey || "").localeCompare(b.sortKey || "", "en", { sensitivity: "base" });
@@ -615,28 +747,29 @@ function openExcludedRidesDialog({ excludedIds, parkFilter, persistMode = "draft
     `;
   }
 
-  function renderParkFilters() {
-    const chip = (label, checked, parkId) => `
-      <label style="display:inline-flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid #e5e7eb;border-radius:999px;background:#ffffff;font-weight:800;">
-        <input type="radio" name="parkPick" data-park="${parkId}" ${checked ? "checked" : ""} />
-        <span>${label}</span>
-      </label>
-    `;
+  
+function renderParkFilters() {
+  const chip = (label, checked, parkId) => `
+    <label style="display:inline-flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid #e5e7eb;border-radius:999px;background:#ffffff;font-weight:800;">
+      <input type="radio" name="parkPick" data-park="${parkId}" ${checked ? "checked" : ""} />
+      <span>${label}</span>
+    </label>
+  `;
 
-    // Exclusive selection: pick the first value if set, otherwise default to mk
-    const selected = parkFilter && parkFilter.size ? [...parkFilter][0] : "mk";
+  const parks = getParksForResort(currentResort || "wdw");
+  // Exclusive selection: pick the first value if set, otherwise default to the resort's first park
+  const selected = parkFilter && parkFilter.size ? [...parkFilter][0] : (parks[0]?.id || "mk");
 
-    return `
-      <div class="formRow">
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
-          ${chip("MK", selected === "mk", "mk")}
-          ${chip("EP", selected === "ep", "ep")}
-          ${chip("HS", selected === "hs", "hs")}
-          ${chip("AK", selected === "ak", "ak")}
-        </div>
+  const labelFor = (pid) => pid.toUpperCase();
+
+  return `
+    <div class="formRow">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;">
+        ${parks.map(p => chip(labelFor(p.id), selected === p.id, p.id)).join("")}
       </div>
-    `;
-  }
+    </div>
+  `;
+}
 
   function renderContent() {
     const excludedRides = rides.filter(r => excludedIds.has(r.id)).sort(sortBySortKey);
@@ -816,7 +949,8 @@ function openExcludedRidesDialog({ excludedIds, parkFilter, persistMode = "draft
    ========================== */
 
 function openSavedChallengesDialog() {
-  const hist = loadChallengeHistory();
+  const rid = currentResort || "wdw";
+  const hist = loadChallengeHistory().filter(x => (x.resortId || "wdw") === rid);
 
   const sorted = [...hist].sort((a, b) => {
     const ta = Date.parse(a.endedAt || a.startedAt || "") || 0;
@@ -886,7 +1020,7 @@ function openSavedChallengesDialog() {
   dialogHost.querySelectorAll("[data-hview]").forEach(btn => {
     btn.addEventListener("click", async () => {
       const id = btn.getAttribute("data-hview");
-      const ch = loadChallengeHistory().find(x => x.id === id);
+      const ch = loadChallengeHistory().find(x => x.id === id && (x.resortId || "wdw") === (currentResort || "wdw"));
       if (!ch) return;
 
       if (!ch.events || ch.events.length === 0) {
@@ -938,8 +1072,19 @@ function openSavedChallengesDialog() {
 /* ==========================
    Park page + ride logging
    ========================== */
-function getParkDisplayName(parkId) {
-  return PARKS.find(p => p.id === parkId)?.name || parkId;
+function getParkDisplayName(parkId, resortId = currentResort) {
+  const rid = resortId || "wdw";
+  const parks = getParksForResort(rid);
+  const hit = parks.find(p => p.id === parkId);
+  if (hit) return hit.name;
+
+  // Fallback: search all resorts (for rendering historical runs)
+  for (const r of Object.values(RESORTS)) {
+    const h2 = r.parks.find(p => p.id === parkId);
+    if (h2) return h2.name;
+  }
+
+  return parkId;
 }
 
 function buildParkCompletionTweetMainText(parkName) {
@@ -1238,141 +1383,115 @@ function truncateToWidth(ctx, text, maxWidth) {
 }
 
 async function renderUpdateImagePng(ch) {
-  const events = (ch?.events || []).slice();
-  const lastEvent = events.length ? events[events.length - 1] : null;
+  const events = ch?.events || [];
 
+  // Determine "as of" time = time of most recent ride (fallback to now)
+  const lastEvent = [...events]
+    .filter(e => e.timeISO)
+    .sort((a, b) => new Date(b.timeISO) - new Date(a.timeISO))[0];
 
-  const asOfDate = lastEvent?.timeISO ? new Date(lastEvent.timeISO) : new Date();
+  const asOfDate = lastEvent?.timeISO
+    ? new Date(lastEvent.timeISO)
+    : new Date();
 
-  // Start date label (challenge started)
-  const startDateLabel = ch?.dayKey
-    ? formatDayKeyLong(ch.dayKey)
-    : (ch?.startedAt ? formatDateResortLong(new Date(ch.startedAt)) : formatDateResortLong(asOfDate));
+  // Use the challenge day for the date label (unchanged)
+  const dateLabel = formatDayKeyLong(ch?.dayKey);
 
-  const asOfTimeStr = formatTimeResort(asOfDate);
-  const asOfDateStr = formatDateResortLong(asOfDate);
+  // Header lines
+  const headerLine1 = dateLabel
+    ? `${dateLabel} challenge run`
+    : `Challenge run`;
 
-  // Single combined header line (no second dot before the as-of date)
-  const headerLine =
-    asOfDateStr === startDateLabel
-      ? `${startDateLabel} · ${events.length} rides as of ${asOfTimeStr}`
-      : `${startDateLabel} · ${events.length} rides as of ${asOfTimeStr} ${asOfDateStr}`;
+  const headerLine2 = `${events.length} rides as of ${formatTime12(asOfDate)}`;
 
-  const headerText = headerLine;
-  
-  // Count date separator rows (inserted before first ride of a new day in resort TZ)
-  let extraDateRows = 0;
-  let prevKey = null;
-  for (let i = 0; i < events.length; i++) {
-    const iso = events[i]?.timeISO;
-    if (!iso) continue;
-    const k = dateKeyResort(new Date(iso));
-    if (prevKey && k && k !== prevKey) extraDateRows++;
-    prevKey = k;
-  }
+  // Keep returning headerText for share text (use both lines)
+  const headerText = `${headerLine1} — ${headerLine2}`;
 
-  // Layout constants (keep your existing values if they differ)
-  const W = 880;
-  const pad = 24;
-  const headH = 60;
-  const headerRowH = 34;
+  const pad = 22;
   const rowH = 34;
+  const headH = 84;
+  const headerRowH = 42;
 
-  const colN = 54;
-  const colTime = 140;
-  const colRide = 520; // remaining width is for line column
+  const colN = 52;
+  const colTime = 110;
+  const colLine = 70;
 
-  const totalRows = events.length + extraDateRows;
-  const H = pad * 2 + headH + headerRowH + totalRows * rowH + 18;
+  const W = 720;
+  const tableW = W - pad * 2;
+  const colRide = tableW - colN - colTime - colLine;
 
+  const H = pad * 2 + headH + headerRowH + events.length * rowH + 18;
+
+  const dpr = Math.max(2, Math.floor(window.devicePixelRatio || 1));
   const canvas = document.createElement("canvas");
-  canvas.width = W;
-  canvas.height = H;
-  const ctx = canvas.getContext("2d");
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
 
-  // Background
+  const ctx = canvas.getContext("2d");
+  ctx.scale(dpr, dpr);
+
+  // background
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, W, H);
 
-  // Header
+  // header
   ctx.fillStyle = "#111827";
-  ctx.font = "800 28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText(headerLine, pad, pad + 36);
-  
-  // Table header row
+
+  // Line 1 (date)
+  ctx.font = "700 28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText(headerLine1, pad, pad + 26);
+
+  // Line 2 (rides as of time)
+  ctx.font = "700 28px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText(headerLine2, pad, pad + 60);
+
+  // divider
   let y = pad + headH;
-  const tableW = W - pad * 2;
-
-  ctx.fillStyle = "#111827";
-  ctx.font = "700 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-  ctx.fillText("#", pad + 8, y + 24);
-  ctx.fillText(`Time (${RESORT_TIME_ABBREV})`, pad + colN + 8, y + 24);
-  ctx.fillText("Ride", pad + colN + colTime + 8, y + 24);
-  ctx.fillText("Line", pad + colN + colTime + colRide + 18, y + 24);
-
-  // Divider under header row
-  ctx.strokeStyle = "#e5e7eb";
+  ctx.strokeStyle = "#111827";
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(pad, y + headerRowH);
-  ctx.lineTo(W - pad, y + headerRowH);
+  ctx.moveTo(pad, y);
+  ctx.lineTo(W - pad, y);
   ctx.stroke();
 
-  y += headerRowH;
+  // column headers
+  y += 28;
+  ctx.fillStyle = "#111827";
+  ctx.font = "700 18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillText("#", pad + 8, y);
+  ctx.fillText("Time", pad + colN + 8, y);
+  ctx.fillText("Ride", pad + colN + colTime + 8, y);
+  ctx.fillText("LL/SR", pad + colN + colTime + colRide + 6, y);
 
-  // Rows
-  let drawRowIndex = 0;
-  let prevDateKey = null;
+  // rows start
+  y += 16;
+  ctx.font = "500 18px system-ui, -apple-system, Segoe UI, Roboto, Arial";
+  ctx.fillStyle = "#111827";
+  ctx.strokeStyle = "#e5e7eb";
+  ctx.lineWidth = 1;
 
   for (let i = 0; i < events.length; i++) {
     const e = events[i];
-    const eventDate = e.timeISO ? new Date(e.timeISO) : null;
-    const thisDateKey = eventDate ? dateKeyResort(eventDate) : null;
+    const rowTop = y + i * rowH;
 
-    // Insert date separator row before the first ride of the new day
-    if (prevDateKey && thisDateKey && thisDateKey !== prevDateKey) {
-      const rowTop = y + drawRowIndex * rowH;
-
-      ctx.fillStyle = "#f3f4f6";
-      ctx.fillRect(pad, rowTop, tableW, rowH);
-
-      ctx.strokeStyle = "#e5e7eb";
-      ctx.beginPath();
-      ctx.moveTo(pad, rowTop);
-      ctx.lineTo(W - pad, rowTop);
-      ctx.stroke();
-
-      ctx.fillStyle = "#111827";
-      ctx.font = "700 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-      ctx.textAlign = "center";
-      ctx.fillText(formatDateResortLong(eventDate), pad + tableW / 2, rowTop + 23);
-      ctx.textAlign = "start";
-
-      drawRowIndex++;
-    }
-
-    prevDateKey = thisDateKey || prevDateKey;
-
-    const rowTop = y + drawRowIndex * rowH;
-
-    // Park tint
+    // Park-tinted background (muted)
     const parkId = e.park || ridesById.get(e.rideId)?.park || "mk";
     const tint = (PARK_THEME[parkId]?.park2) || "rgba(0,0,0,.04)";
     ctx.fillStyle = tint;
     ctx.fillRect(pad, rowTop, tableW, rowH);
 
-    // Row divider
+    // row divider
     ctx.strokeStyle = "#e5e7eb";
     ctx.beginPath();
     ctx.moveTo(pad, rowTop);
     ctx.lineTo(W - pad, rowTop);
     ctx.stroke();
 
-    // Text
+    // text
     ctx.fillStyle = "#111827";
-    ctx.font = "500 20px system-ui, -apple-system, Segoe UI, Roboto, Arial";
-
     const ty = rowTop + 23;
-    const timeStr = e.timeISO ? formatTimeResort(new Date(e.timeISO)) : "";
+
+    const timeStr = e.timeISO ? formatTime12(new Date(e.timeISO)) : "";
     const rideStr = mediumRideNameFor(e.rideId, e.rideName);
     const rideText = truncateToWidth(ctx, rideStr, colRide - 12);
     const lineStr = lineAbbrev(e.mode);
@@ -1381,19 +1500,18 @@ async function renderUpdateImagePng(ch) {
     ctx.fillText(timeStr, pad + colN + 8, ty);
     ctx.fillText(rideText, pad + colN + colTime + 8, ty);
     ctx.fillText(lineStr, pad + colN + colTime + colRide + 18, ty);
-
-    drawRowIndex++;
   }
 
-  // Bottom border
-  const bottomY = y + (events.length + extraDateRows) * rowH;
+  // bottom border
+  const bottomY = y + events.length * rowH;
   ctx.strokeStyle = "#e5e7eb";
   ctx.beginPath();
   ctx.moveTo(pad, bottomY);
   ctx.lineTo(W - pad, bottomY);
   ctx.stroke();
 
-  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 0.92));
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png", 1.0));
+  if (!blob) throw new Error("toBlob failed");
   return { blob, headerText };
 }
 
@@ -1494,32 +1612,6 @@ function openLineEditDialog(ride, info) {
     ]
   });
 
-// Disable "correction tweet" unless the user actually changes the line type
-  const correctionBtn = dialogHost.querySelector('[data-dbtn="1"]'); // 2nd button
-  const modeInputs = dialogHost.querySelectorAll('input[name="mode"]');
-
-  function getPickedMode() {
-    return dialogHost.querySelector('input[name="mode"]:checked')?.value ?? currentMode;
-  }
-
-  function syncCorrectionBtn() {
-    const picked = getPickedMode();
-    const changed = picked !== currentMode;
-
-    if (!correctionBtn) return;
-
-    correctionBtn.disabled = !changed;
-
-    // Optional: toggle a class so it looks clearly greyed out
-    correctionBtn.classList.toggle("isDisabled", !changed);
-
-    // Optional: make it look "primary" only when it can be used
-    correctionBtn.classList.toggle("btnPrimary", changed);
-  }
-
-  modeInputs.forEach(inp => inp.addEventListener("change", syncCorrectionBtn));
-  syncCorrectionBtn();
-  
   function radioItem(value, label, selected, enabled = true) {
     return `
       <label class="radioItem" style="${enabled ? "" : "opacity:.45"}">
@@ -1669,14 +1761,6 @@ function showToast(msg) {
   setTimeout(() => el.remove(), 2200);
 }
 
-
-function formatDateShort(d) {
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const m = months[d.getMonth()];
-  const day = d.getDate();
-  return `${m} ${day}`;
-}
-
 function formatTime(d) {
   let h = d.getHours();
   const m = String(d.getMinutes()).padStart(2, "0");
@@ -1694,4 +1778,8 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
+
+
+
+
 
