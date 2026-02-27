@@ -174,7 +174,7 @@ function renderResortSelectPage() {
       <div class="card">
         <div class="h1">Welcome</div>
         <p class="p">
-          This app may help you track your challenge run and generate draft tweets for you.
+          This app may help you track your Every Ride Challenge run and generate draft tweets for you.
         </p>
       </div>
 
