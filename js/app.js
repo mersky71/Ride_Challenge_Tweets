@@ -371,27 +371,65 @@ function setupMoreMenu() {
   endToStartBtn.addEventListener("click", () => {
     moreBtn.setAttribute("aria-expanded", "false");
     moreMenu.setAttribute("aria-hidden", "true");
-
-    openConfirmDialog({
-      title: "End today’s challenge?",
-      body: "This will save today into Recent history, clear all rides logged today, and return you to the Start page. You can begin a new challenge immediately.",
-      confirmText: "End challenge and return to Start",
-      confirmClass: "btnDanger",
-      onConfirm: () => {
-        if (active && active.events && active.events.length > 0) {
-          // Save into history as recent (not permanently “Saved” yet)
-          archiveChallengeToHistory({ ...active, resortId: active.resortId || currentResort || "wdw", endedAt: new Date().toISOString() }, { saved: false });
-        }
-
-        clearActiveChallenge();
-        active = null;
-
-        setHeaderEnabled(false);
-        applyParkTheme("home");
-        renderStartPage();
-      }
-    });
+    openEndChallengeDialog();
   });
+}
+
+function openEndChallengeDialog() {
+  const pendingTwoferEvents = getPendingTwoferEvents();
+
+  if (pendingTwoferEvents.length) {
+    openDialog({
+      title: "End today’s challenge?",
+      body: "You have 1 ride that has not been included in a Twofer tweet yet. Send a final tweet before ending?",
+      content: "",
+      buttons: [
+        {
+          text: "Send final tweet",
+          className: "btn btnPrimary",
+          action: () => {
+            openTweetDraft(buildRideBatchTweet(pendingTwoferEvents));
+            closeDialog();
+            endCurrentChallengeAndReturnToStart();
+          }
+        },
+        {
+          text: "End without tweeting",
+          className: "btn btnDanger",
+          action: () => {
+            closeDialog();
+            endCurrentChallengeAndReturnToStart();
+          }
+        },
+        { text: "Cancel", className: "btn", action: () => closeDialog() }
+      ]
+    });
+    return;
+  }
+
+  openConfirmDialog({
+    title: "End today’s challenge?",
+    body: "This will save today into Recent history, clear all rides logged today, and return you to the Start page. You can begin a new challenge immediately.",
+    confirmText: "End challenge and return to Start",
+    confirmClass: "btnDanger",
+    onConfirm: () => {
+      endCurrentChallengeAndReturnToStart();
+    }
+  });
+}
+
+function endCurrentChallengeAndReturnToStart() {
+  if (active && active.events && active.events.length > 0) {
+    // Save into history as recent (not permanently “Saved” yet)
+    archiveChallengeToHistory({ ...active, resortId: active.resortId || currentResort || "wdw", endedAt: new Date().toISOString() }, { saved: false });
+  }
+
+  clearActiveChallenge();
+  active = null;
+
+  setHeaderEnabled(false);
+  applyParkTheme("home");
+  renderStartPage();
 }
 
 function ensureMoreMenuExcludedRidesItem() {
@@ -621,6 +659,25 @@ function renderStartPage(resortId = currentResort || "wdw") {
           <input id="fundLink" class="input" placeholder="https://..." />
         </div>
 
+        <div class="card" style="margin-top:12px; border:2px solid var(--park); background:#ffffff;">
+          <div class="h1" style="font-size:16px; color:var(--park);">Unverified Twitter User? Consider Twofer mode</div>
+          <p class="p" style="margin-top:6px;">Twofer mode creates one draft tweet for every two rides instead of every ride.</p>
+          <div class="radioList" style="margin-top:10px;">
+            <label class="btn btnInverse" style="display:flex; align-items:center; justify-content:flex-start; gap:10px; width:100%; margin-bottom:8px;">
+              <input type="radio" name="tweetMode" value="original" checked />
+              <span>Original mode: tweet every ride</span>
+            </label>
+            <label class="btn btnInverse" style="display:flex; align-items:center; justify-content:flex-start; gap:10px; width:100%;">
+              <input type="radio" name="tweetMode" value="twofer" />
+              <span>Twofer mode: tweet every 2nd ride</span>
+            </label>
+          </div>
+          <div class="btnRow" style="margin-top:10px;">
+            <button id="twoferInfoBtn" class="btn btnPrimary" type="button">What's This?</button>
+          </div>
+        </div>
+
+        
         <div class="card" style="margin-top:12px; border: 1px solid rgba(17,24,39,0.12);">
           <div class="h1" style="font-size:16px;">Exclude rides (refurb / custom challenge)</div>
            <p class="p" style="margin-top:6px;"> Click to exclude rides that are not operating today, or to create a custom challenge. </p>
@@ -687,6 +744,17 @@ function renderStartPage(resortId = currentResort || "wdw") {
     });
   });
 
+  document.getElementById("twoferInfoBtn")?.addEventListener("click", () => {
+    openDialog({
+      title: "What is Twofer mode?",
+      body: "Twofer mode is for unverified Twitter users who may have a daily tweet limit. Instead of opening a draft tweet after every ride, the app opens one draft after every 2nd ride. That draft includes both ride entries. If you finish with an odd number of rides, the final ride gets its own draft tweet. If you stop before completing the challenge, End challenge will offer to create the final pending tweet before saving your run.",
+      content: "",
+      buttons: [
+        { text: "Got it", className: "btn btnPrimary", action: () => closeDialog() }
+      ]
+    });
+  });
+
   document.getElementById("startBtn")?.addEventListener("click", () => {
     const tagsText = document.getElementById("tagsText").value ?? "";
     const fundraisingLink = document.getElementById("fundLink").value ?? "";
@@ -694,6 +762,13 @@ function renderStartPage(resortId = currentResort || "wdw") {
     active = startNewChallenge({ tagsText, fundraisingLink });
 
     active.resortId = currentResort || resortId || "wdw";
+
+    const tweetMode = document.querySelector('input[name="tweetMode"]:checked')?.value === "twofer"
+      ? "twofer"
+      : "original";
+    active.tweetMode = tweetMode;
+    active.settings = active.settings || {};
+    active.settings.tweetMode = tweetMode;
 
     // Copy “excluded rides” draft into the new active challenge
     const excludedIds = loadExcludedDraftIds();
@@ -1259,6 +1334,64 @@ function renderLineButton(rideId, mode, label, selected, readOnly) {
   `;
 }
 
+function getTweetMode() {
+  return active?.tweetMode || active?.settings?.tweetMode || "original";
+}
+
+function isTwoferMode() {
+  return getTweetMode() === "twofer";
+}
+
+function getIncludedRideCountForActive() {
+  const excludedSet = getExcludedSetForActive();
+  return rides.filter(r => !excludedSet.has(r.id)).length;
+}
+
+function isChallengeCompleteForActive() {
+  if (!active) return false;
+  const totalIncluded = getIncludedRideCountForActive();
+  return totalIncluded > 0 && (active.events?.length || 0) >= totalIncluded;
+}
+
+function getPendingTwoferEvents() {
+  if (!active || !isTwoferMode()) return [];
+  const events = active.events || [];
+  if (!events.length || isChallengeCompleteForActive()) return [];
+  return events.length % 2 === 1 ? [events[events.length - 1]] : [];
+}
+
+function getEventsForRideTweetAfterLog() {
+  const events = active?.events || [];
+  if (!events.length) return [];
+  if (!isTwoferMode()) return [events[events.length - 1]];
+  if (events.length % 2 === 0) return events.slice(-2);
+  if (isChallengeCompleteForActive()) return events.slice(-1);
+  return [];
+}
+
+function getLightningLaneNumberForEvent(event) {
+  if (!active || !event || event.mode !== "ll") return null;
+  const idx = (active.events || []).findIndex(e => e.id === event.id);
+  if (idx < 0) return null;
+  return active.events.slice(0, idx + 1).filter(e => e.mode === "ll").length;
+}
+
+function buildRideTweetForEvent(event) {
+  const idx = (active?.events || []).findIndex(e => e.id === event.id);
+  const ride = ridesById.get(event.rideId);
+  return buildRideTweet({
+    rideNumber: idx >= 0 ? idx + 1 : null,
+    rideName: event.rideName || ride?.name || "Ride",
+    mode: event.mode,
+    timeLabel: event.timeISO ? formatTime(new Date(event.timeISO)) : "",
+    llNumber: getLightningLaneNumberForEvent(event)
+  });
+}
+
+function buildRideBatchTweet(events) {
+  return (events || []).map(buildRideTweetForEvent).filter(Boolean).join("\n");
+}
+
 function renderCompletedText(mode, timeISO) {
   const label =
     mode === "ll" ? "Lightning Lane" :
@@ -1280,8 +1413,6 @@ function logRide(ride, mode) {
   }
 
   const now = new Date();
-  const timeLabel = formatTime(now);
-  const rideNumber = active.events.length + 1;
 
   const event = {
     id: crypto.randomUUID(),
@@ -1295,33 +1426,26 @@ function logRide(ride, mode) {
   active.events.push(event);
   saveActiveChallenge(active);
 
-  const llNumber =
-    mode === "ll"
-      ? (active?.events?.filter(e => e.mode === "ll").length || 0)
-      : null;
+  const eventsToTweet = getEventsForRideTweetAfterLog();
+  if (eventsToTweet.length) {
+    openTweetDraft(buildRideBatchTweet(eventsToTweet));
+  } else if (isTwoferMode()) {
+    showToast("Ride logged. Twofer tweet will be created after the next ride.");
+  }
 
-  const tweetText = buildRideTweet({
-    rideNumber,
-    rideName: ride.name,
-    mode,
-    timeLabel,
-    llNumber
-  });
-
-  openTweetDraft(tweetText);
   renderParkPage({ readOnly: false });
 }
 
 function buildRideTweet({ rideNumber, rideName, mode, timeLabel, llNumber }) {
-  const base = `Ride ${rideNumber}. ${rideName}`;
+  const base = rideNumber ? `Ride ${rideNumber}. ${rideName}` : `${rideName}`;
 
-  // Only mention the line type if it's NOT standby (standby is the default) and  add count of LL
+  // Only mention the line type if it's NOT standby (standby is the default) and add count of LL
   const mid =
     mode === "ll" ? ` using Lightning Lane${llNumber ? ` #${llNumber}` : ""}` :
     mode === "sr" ? " using Single Rider" :
     "";
 
-  return `${base}${mid} at ${timeLabel}`;
+  return `${base}${mid}${timeLabel ? ` at ${timeLabel}` : ""}`;
 }
 
 function getTagsAndLinkFromActive() {
@@ -1778,8 +1902,3 @@ function escapeHtml(s) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 }
-
-
-
-
-
