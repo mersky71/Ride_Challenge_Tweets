@@ -2212,8 +2212,12 @@ function showUpdateImageDialog({ blob, headerText }) {
     }
   })();
 
+  // Keep the new scrollable preview hidden until the blob image is actually
+  // decoded. On some mobile browsers (notably Android Chrome), revealing a
+  // fixed/overflow modal before the image has a laid-out size can leave the
+  // preview visually blank until the user scrolls and forces a repaint.
   dialogHost.innerHTML = `
-    <div class="dialogBackdrop updateImageDialogBackdrop" role="presentation">
+    <div class="dialogBackdrop updateImageDialogBackdrop" role="presentation" style="visibility:hidden;">
       <div class="dialog updateImageDialog" role="dialog" aria-modal="true">
         <div class="updateImagePreview">
           <img src="${url}" alt="Update image preview" />
@@ -2228,12 +2232,66 @@ function showUpdateImageDialog({ blob, headerText }) {
     </div>
   `;
 
+  const backdrop = dialogHost.querySelector(".updateImageDialogBackdrop");
+  const dialog = dialogHost.querySelector(".updateImageDialog");
+  const preview = dialogHost.querySelector(".updateImagePreview");
+  const previewImg = preview?.querySelector("img");
+
+  // Reveal only after the image is ready, then explicitly cause layout and a
+  // fresh paint. This avoids relying on a user scroll to wake up the preview.
+  const revealPreview = async () => {
+    if (!backdrop || !dialog || !preview || !previewImg) return;
+
+    try {
+      if (typeof previewImg.decode === "function") {
+        await previewImg.decode();
+      } else if (!previewImg.complete) {
+        await new Promise((resolve) => {
+          previewImg.addEventListener("load", resolve, { once: true });
+          previewImg.addEventListener("error", resolve, { once: true });
+        });
+      }
+    } catch {
+      // decode() can reject even when the browser can still display the image.
+    }
+
+    // The user may have closed/replaced the dialog while decoding.
+    if (!dialogHost.contains(backdrop)) return;
+
+    preview.scrollTop = 0;
+    backdrop.scrollTop = 0;
+
+    // Force the browser to calculate the image/modal dimensions before reveal.
+    void previewImg.offsetHeight;
+    void dialog.offsetHeight;
+
+    requestAnimationFrame(() => {
+      if (!dialogHost.contains(backdrop)) return;
+
+      backdrop.style.visibility = "visible";
+
+      // A short compositor nudge makes the initial paint reliable in mobile
+      // browsers with fixed + overflow containers. It is removed immediately.
+      dialog.style.transform = "translateZ(0)";
+      void backdrop.offsetHeight;
+
+      requestAnimationFrame(() => {
+        if (!dialogHost.contains(backdrop)) return;
+        dialog.style.transform = "";
+        preview.scrollTop = 0;
+        backdrop.scrollTop = 0;
+      });
+    });
+  };
+
+  revealPreview();
+
   const close = () => {
     try { URL.revokeObjectURL(url); } catch {}
     closeDialog();
   };
 
-  dialogHost.querySelector(".dialogBackdrop")?.addEventListener("click", (e) => {
+  backdrop?.addEventListener("click", (e) => {
     if (e.target.classList.contains("dialogBackdrop")) close();
   });
 
